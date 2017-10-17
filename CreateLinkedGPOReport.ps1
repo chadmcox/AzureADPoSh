@@ -56,7 +56,7 @@ from the use or distribution of the Sample Code..
  This script enumerates anything with gplink and searches for a unresolvable guid 
 
 #> 
-Param($defaultlog = "$env:userprofile\Documents\gplinks.csv")
+Param($defaultlog = "$env:userprofile\Documents\report_gpo_links.csv")
 $results = @()
 $hash_domain = @{Name="Domain";Expression={$domain}}
 $hash_dn = @{Name="DistinguishedName";Expression={$location.distinguishedname}}
@@ -93,8 +93,8 @@ Function resolve-gpoguid{
     }
 }
 #gplinks from objects on Sites
-get-adobject -filter {gplink -like "*"} -properties gplink -Searchbase $((Get-ADRootDSE).ConfigurationNamingContext)`
-   -PipelineVariable location | foreach{
+get-adobject -filter {gplink -like "*"} -properties gplink -Searchbase $((Get-ADRootDSE).ConfigurationNamingContext) `
+    -PipelineVariable location | foreach{
     $domain = (get-adforest).name
     [array]$array_gplink = $($location.gplink).split("`\[") 
     [array]$array_gplink | foreach{
@@ -107,7 +107,7 @@ get-adobject -filter {gplink -like "*"} -properties gplink -Searchbase $((Get-AD
 }
 
 cls
-$results | export-csv $defaultlog
+$results | export-csv $defaultlog -NoTypeInformation
 write-host "Found $(($results | where resolved -eq $false | group resolved | select Count).count) GPLINKS with unresolvable GPO"
 write-host "Found $(($results | where GPOState -eq 99| group GPOState | select Count).count) with Block Inheritance"
 write-host "Found $(($results | where GPOState -eq 1 | group GPOState | select Count).count) with GPO Disabled"
