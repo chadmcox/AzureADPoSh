@@ -115,4 +115,8 @@ write-host "Found $(($results | where GPOState -eq 2 | group GPOState | select C
 write-host "Found $(($results | where ObjectClass -eq "domainDNS" | group resolved | select Count).count) GPLINKS on the Root of the Domain"
 write-host "Found $(($results | where ObjectClass -eq "Site" | group resolved | select Count).count) GPLINKS set on Sites"
 write-host "Results can be found here $defaultlog"
-    
+write-host "--------------------------------------------------------------------------------------"
+write-host -foreground yellow "Open the csv in excel and sort based on the column headers."
+write-host -foreground yellow  "*remove any gpos on containers that are not resolvable"
+write-host -foreground yellow  "*review containers that are Blocking Inheritance"
+write-host -foreground yellow  "*review site linked gpos and consider removing the gpo"
