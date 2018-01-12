@@ -63,8 +63,22 @@ connect-azuread
 $results = @()
 foreach($AADapp in Get-AzureADApplication){
     $results += Get-AzureADApplicationPasswordCredential -objectid $AADapp.objectid | select `
-        @{name='DisplayName';expression={$AADapp.DisplayName}},StartDate,EndDate
+        @{name='ObjectID';expression={$AADapp.objectid}},KeyId, `
+        @{name='DisplayName';expression={$AADapp.DisplayName}},StartDate,EndDate, `
+        @{name='Expired';expression={if($_.EndDate -lt $(get-date)){$true}}}
 }
 
 $results | export-csv $default_log -NoTypeInformation
 $results | sort enddate
+
+<#
+   Sample code
+    $newkeys = @()
+    foreach($key in ($Results | where {$_.Expired -eq $true})){
+        #create a new Key can add a startdate, enddate, customkeyidentifier as well
+        $newkeys += New-AzureADApplicationPasswordCredential -objectid $_.ObjectID
+        #delete the old Key
+        Remove-AzureADApplicationPasswordCredential -ObjectId $_.objectid -keyid $_.keyid
+    } 
+    $newkeys
+#>
