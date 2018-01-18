@@ -77,7 +77,7 @@ $users | where {$_.userprincipalname -notlike "*#EXT#@HoneywellProd.onmicrosoft.
 }
 
 write-host "Accounts with PrimaryEmail matching UPN" -foregroundcolor yellow
-($final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -contains "*"} | measure-object).count
+($final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -like "*"} | measure-object).count
 
-$final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -contains "*"} | export-csv $results -NoTypeInformation
+$final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -like "*"} | export-csv $results -NoTypeInformation
 Write-host "Results are here $results"
