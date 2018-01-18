@@ -66,7 +66,8 @@ $results = "$($path)results_azureadusersupnmatchsmtp.csv"
 
 $final_users = @()
 $users = Get-AzureADUser -all $true | select userprincipalname, proxyaddresses
-$users | foreach{$_.userprincipalname
+$users | where {$_.userprincipalname -notlike "*#EXT#@HoneywellProd.onmicrosoft.com" -and $_.proxyaddresses -like "*"} | `
+    foreach{
     $primary_email = $null
     $primary_email = $_.proxyaddresses | foreach{if($_ -cmatch "SMTP:"){$_}}
     $primary_email = $primary_email -replace "SMTP:",""
