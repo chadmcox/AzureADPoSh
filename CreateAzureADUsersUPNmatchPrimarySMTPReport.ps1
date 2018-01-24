@@ -65,19 +65,20 @@ connect-azuread
 $results = "$($path)results_azureadusersupnmatchsmtp.csv"
 
 $final_users = @()
-$users = Get-AzureADUser -all $true | select userprincipalname, proxyaddresses
-$users | where {$_.userprincipalname -notlike "*#EXT#@HoneywellProd.onmicrosoft.com" -and $_.proxyaddresses -like "*"} | `
+$users = Get-AzureADUser -all $true | select userprincipalname, proxyaddresses,MailNickName,ProvisionedPlans
+$users | where {$_.userprincipalname -notlike "*#EXT#*" -and $_.proxyaddresses -like "*" -and $_.ProvisionedPlans -like "*"} | `
     foreach{
     $primary_email = $null
     $primary_email = $_.proxyaddresses | foreach{if($_ -cmatch "SMTP:"){$_}}
     $primary_email = $primary_email -replace "SMTP:",""
     $final_users += $_ | select userprincipalname, `
         @{Name="PrimaryEmail";Expression={$primary_email}}, `
-        @{Name="PrimaryEmailMatchUPN";Expression={if($primary_email -match $_.userprincipalname){$True}Else{$false}}}
+        @{Name="PrimaryEmailMatchUPN";Expression={if($primary_email -match $_.userprincipalname){$True}Else{$false}}}, `
+        MailNickName
 }
 
 write-host "Accounts with PrimaryEmail matching UPN" -foregroundcolor yellow
-($final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -like "*"} | measure-object).count
+($final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -notlike "*onmicrosoft.com"} | measure-object).count
 
-$final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -like "*"} | export-csv $results -NoTypeInformation
+$final_users | where {$_.PrimaryEmailMatchUPN -eq $false -and $_.PrimaryEmail -notlike "*onmicrosoft.com"} | export-csv $results -NoTypeInformation
 Write-host "Results are here $results"
