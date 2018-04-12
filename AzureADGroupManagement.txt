@@ -1,0 +1,10 @@
+connect-azuread
+$groups = get-azureadgroup -all $true | where DirSyncEnabled -eq $null
+$groups.count
+$results = $groups | select ObjectId,DisplayName,Mail,MailEnabled,DirSyncEnabled,`
+    @{name='GroupOwner';expression={(Get-AzureADGroupowner -ObjectId $_.ObjectId).UserPrincipalName}},`
+    @{name='MemberCount';expression={(Get-AzureADGroupMember -ObjectId $_.ObjectId).count}},`
+    description
+($results | where MemberCount -lt 2).count
+($results | where GroupOwner -eq $null).count
+$results | sort membercount -descending | select -First 10
