@@ -1,10 +1,22 @@
-connect-azuread
-$groups = get-azureadgroup -all $true | where DirSyncEnabled -eq $null
-$groups.count
-$results = $groups | select ObjectId,DisplayName,Mail,MailEnabled,DirSyncEnabled,`
+get-module azuread
+$groups = get-azureadgroup -all $true
+$groups | get-member 
+$groups | group DirSyncEnabled | select name,count
+
+$cloud_groups = $groups | where {$_.DirSyncEnabled -eq $null}
+$cloud_o365_groups = $groups | where {$_.DirSyncEnabled -eq $null -and $_.mailenabled -eq $true}
+
+Write-host "All Groups in Azure AD: $($groups.count)"
+Write-host "Groups Originated in the cloud: $($cloud_groups.count)"
+Write-host "Groups Originated in the cloud from O365: $($cloud_groups.count)"
+
+#build a list of Report of all the cloud groups
+#will contain information including the owner and member count
+#this will take a while
+$cloud_groups_with_details = $groups | select ObjectId,DisplayName,Mail,MailEnabled,DirSyncEnabled,`
     @{name='GroupOwner';expression={(Get-AzureADGroupowner -ObjectId $_.ObjectId).UserPrincipalName}},`
     @{name='MemberCount';expression={(Get-AzureADGroupMember -ObjectId $_.ObjectId).count}},`
     description
-($results | where MemberCount -lt 2).count
-($results | where GroupOwner -eq $null).count
-$results | sort membercount -descending | select -First 10
+
+write-host "Number of groups with members less than 2: $($cloud_groups_with_details | where MemberCount -lt 2).count)"
+write-host "Number of groups with no owner: $($cloud_groups_with_details | where GroupOwner -eq $null).count)"
