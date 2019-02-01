@@ -51,7 +51,7 @@ Function FindupninProxy{
 
  function findmismatchedupn{
     write-host "Collecting all Synced Accounts from Azure AD"
-    $aadusers_upns = Get-MsolUser -Synchronized -all | where where {$_.isLicensed -eq $true} | select Userprincipalname
+    $aadusers_upns = Get-MsolUser -Synchronized -all | where {$_.isLicensed -eq $true} | select Userprincipalname
     write-host "Searching for upn in local AD"
     foreach($aadupn in $aadusers_upns){
         if(!(FindUPNinAD -upn ($aadupn).Userprincipalname)){
