@@ -2,7 +2,7 @@
 #Require -module activedirectory
 <#PSScriptInfo
 
-.VERSION 0.2
+.VERSION 0.3
 
 .GUID 5e7bfd24-88b8-4e4d-99fd-c4ffbfcf5be6
 
@@ -45,13 +45,13 @@ function FindUPNinAD{
 
 Function FindupninProxy{
     param($upn)
-    write-host "Looking for $UPN in proxy"
+    write-host "Found UPN in proxy for: $UPN"
     (get-aduser -Filter {proxyaddresses -like $upn} -server $domain -properties Userprincipalname).Userprincipalname
 }
 
  function findmismatchedupn{
     write-host "Collecting all Synced Accounts from Azure AD"
-    $aadusers_upns = Get-MsolUser -Synchronized -all | select Userprincipalname
+    $aadusers_upns = Get-MsolUser -Synchronized -all | where where {$_.isLicensed -eq $true} | select Userprincipalname
     write-host "Searching for upn in local AD"
     foreach($aadupn in $aadusers_upns){
         if(!(FindUPNinAD -upn ($aadupn).Userprincipalname)){
