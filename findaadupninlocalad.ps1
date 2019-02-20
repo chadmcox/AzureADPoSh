@@ -30,37 +30,59 @@ from the use or distribution of the Sample Code..
 
 #>
 Param($reportpath = "$env:userprofile\Documents")
-#Connect-MsolService
+Connect-MsolService
 
 #needs to connect to global catalog
 $domain = (get-addomain).DNSRoot + ":3268"
 
-function FindUPNinAD{
-    param($upn)
-    if(get-aduser -Filter {Userprincipalname -eq $upn} -server $domain)
-        {write-host "Found UPN: $UPN"
-        $true
-    }else{$false}
-}
+get-job | Remove-Job -Force
 
-Function FindupninProxy{
-    param($upn)
-    write-host "Found UPN in proxy for: $UPN"
-    (get-aduser -Filter {proxyaddresses -like $upn} -server $domain -properties Userprincipalname).Userprincipalname
-}
 
- function findmismatchedupn{
-    write-host "Collecting all Synced Accounts from Azure AD"
-    $aadusers_upns = Get-MsolUser -Synchronized -all | where {$_.isLicensed -eq $true} | select Userprincipalname
-    write-host "Searching for upn in local AD"
-    foreach($aadupn in $aadusers_upns){
-        if(!(FindUPNinAD -upn ($aadupn).Userprincipalname)){
-            $aadupn | select Userprincipalname, `
-            @{name='NewUpn';expression={FindupninProxy -upn "*$(($aadupn).Userprincipalname)*"}} 
-        }
+$MaxThreads = 3
+$SleepTimer = 500
+$jobnumber = 1
+
+Write-host "Gathering Synced Licensed Users from AAD"
+$aadusers_upns = (Get-MsolUser -Synchronized -all | where {$_.isLicensed -eq $true} | select Userprincipalname).Userprincipalname
+#$aadusers_upns = (Get-MsolUser -Synchronized -all | select Userprincipalname).Userprincipalname
+
+Write-host "Searching Local AD"
+foreach($upn in $aadusers_upns){
+    While (@(Get-Job -state running).count -ge $MaxThreads){      
+        Start-Sleep -Milliseconds $SleepTimer
     }
+    write-host "$(($upn).userprincipalname)"
+    Start-Job -scriptblock {
+        $aadupn = $args[0]
+        $report = $args[1]
+        $domain = $args[2]
+        
+        $results = get-aduser -Filter {Userprincipalname -eq $aadupn} -server $domain
+
+        if(!($results)){
+            $search_upn = "*$aadupn*"
+            $proxy_upn = (get-aduser -Filter {proxyaddresses -like $search_upn} -server $domain -properties Userprincipalname).Userprincipalname
+            $aadupn | select  `
+            @{name='Userprincipalname';expression={$aadupn}}, `
+            @{name='NewUpn';expression={if($proxy_upn){$proxy_upn}else{"Not Found"}}} 
+        }else{
+            $aadupn | select  `
+            @{name='Userprincipalname';expression={$aadupn}}, `
+            @{name='NewUpn';expression={"Found"}}
+        }
+
+    } -ArgumentList $upn,$reportpath,$domain -Name $upn
+
 }
 
-$mismatched_users = findmismatchedupn
-$mismatched_users | export-csv "$reportpath\aaduserswithmismatchedupn.csv" -NoTypeInformation
+While (Get-Job -state running){      
+        Start-Sleep -Milliseconds $SleepTimer
+}
+
+$results = Receive-Job * | select Userprincipalname,NewUpn
+
+$results | where newupn -ne "Found" | export-csv "$reportpath\aaduserswithmismatchedupn.csv" -NoTypeInformation
+
+
+#$mismatched_users | export-csv "$reportpath\aaduserswithmismatchedupn.csv" -NoTypeInformation
 write-host "Found Users with Mismatched UPN in AD Total: $(($mismatched_users | Measure-Object).count)"
