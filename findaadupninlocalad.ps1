@@ -30,7 +30,7 @@ from the use or distribution of the Sample Code..
 
 #>
 Param($reportpath = "$env:userprofile\Documents")
-#Connect-MsolService
+Connect-MsolService
 cls
 $mismatched_users = @()
 
@@ -57,7 +57,7 @@ function searchforproxy{
 }
 
 Write-host "Gathering Synced Licensed Users from AAD"
-#$aadusers_upns = (Get-MsolUser -Synchronized -all | where {$_.isLicensed -eq $true} | select Userprincipalname).Userprincipalname
+$aadusers_upns = (Get-MsolUser -Synchronized -all | where {$_.isLicensed -eq $true} | select Userprincipalname).Userprincipalname
 #$aadusers_upns = (Get-MsolUser -Synchronized -all | select Userprincipalname).Userprincipalname
 $adusers = @()
 Write-host "Gathering Users from AD"
