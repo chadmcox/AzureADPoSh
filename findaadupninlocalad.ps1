@@ -2,7 +2,7 @@
 #Require -module activedirectory
 <#PSScriptInfo
 
-.VERSION 0.4
+.VERSION 0.5
 
 .GUID 5e7bfd24-88b8-4e4d-99fd-c4ffbfcf5be6
 
@@ -60,19 +60,24 @@ Write-host "Gathering Synced Licensed Users from AAD"
 $aadusers_upns = (Get-MsolUser -Synchronized -all | where {$_.isLicensed -eq $true} | select Userprincipalname).Userprincipalname
 #$aadusers_upns = (Get-MsolUser -Synchronized -all | select Userprincipalname).Userprincipalname
 $adusers = @()
+$adusers_upns = @()
 Write-host "Gathering Users from AD"
 foreach($domain in (get-adforest).domains){
     Write-host "Gathering users from $domain"
-    $adusers += get-aduser -ldapfilter "(proxyaddresses=*)" -server $domain -pipelinevariable aduser `
-        -properties proxyaddresses | select -ExpandProperty proxyaddresses -PipelineVariable pa | foreach {
-            $aduser | select userprincipalname, `
-            @{name="proxyaddress";Expression={$pa}}
+    get-aduser -ldapfilter "(proxyaddresses=*)" -server $domain -pipelinevariable aduser `
+        -properties proxyaddresses | foreach{
+            $adusers_upns += ($aduser).userprincipalname
+           $aduser | select -ExpandProperty proxyaddresses -PipelineVariable pa | foreach {
+               $adusers += $aduser | select userprincipalname, `
+                @{name="proxyaddress";Expression={$pa}}
+            }
         }
 }
 
+
 write-host "Creating Unique List of UPNs for AD Users"
 $adusers = $adusers | sort
-$adusers_upns = ($adusers | select userprincipalname -Unique).userprincipalname
+$adusers_upns = $adusers_upns | sort
 $aadusers_upns = $aadusers_upns | sort
 write-host "Retrieved $(($aadusers_upns | Measure-Object).count) UPNs from AAD"
 write-host "Retrieved $(($adusers | Measure-Object).count) Unique Proxy Entries from AD"
