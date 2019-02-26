@@ -2,7 +2,7 @@
 #Require -module activedirectory
 <#PSScriptInfo
 
-.VERSION 0.5
+.VERSION 0.6
 
 .GUID 5e7bfd24-88b8-4e4d-99fd-c4ffbfcf5be6
 
@@ -59,17 +59,17 @@ function searchforproxy{
 Write-host "Gathering Synced Licensed Users from AAD"
 $aadusers_upns = (Get-MsolUser -Synchronized -all | where {$_.isLicensed -eq $true} | select Userprincipalname).Userprincipalname
 #$aadusers_upns = (Get-MsolUser -Synchronized -all | select Userprincipalname).Userprincipalname
-$adusers = @()
-$adusers_upns = @()
+[System.Collections.ArrayList]$adusers = @()
+[System.Collections.ArrayList]$adusers_upns = @()
 Write-host "Gathering Users from AD"
 foreach($domain in (get-adforest).domains){
     Write-host "Gathering users from $domain"
     get-aduser -ldapfilter "(proxyaddresses=*)" -server $domain -pipelinevariable aduser `
         -properties proxyaddresses | foreach{
-            $adusers_upns += ($aduser).userprincipalname
+            $adusers_upns.Add($(($aduser).userprincipalname))
            $aduser | select -ExpandProperty proxyaddresses -PipelineVariable pa | foreach {
-               $adusers += $aduser | select userprincipalname, `
-                @{name="proxyaddress";Expression={$pa}}
+               $adusers.Add($($aduser | select userprincipalname, `
+                @{name="proxyaddress";Expression={$pa}}))
             }
         }
 }
