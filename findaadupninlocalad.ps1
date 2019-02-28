@@ -2,7 +2,7 @@
 #Require -module activedirectory
 <#PSScriptInfo
 
-.VERSION 0.12
+.VERSION 0.13
 
 .GUID 5e7bfd24-88b8-4e4d-99fd-c4ffbfcf5be6
 
@@ -50,7 +50,7 @@ $ad_users = get-adforest -pipelinevariable forest | select -ExpandProperty domai
     Get-ADOrganizationalUnit -filter * -Properties "msds-approx-immed-subordinates" -server $domain `
         -ResultPageSize 500 -ResultSetSize $null -PipelineVariable ou |`
             where {$_."msds-approx-immed-subordinates" -ne 0} | foreach{
-                 Write-host "Collecting Users from $($ou).distinguishedname"
+                 Write-host "Collecting Users from $(($ou).distinguishedname)"
                 get-aduser -ldapfilter "(proxyaddresses=*)" -SearchBase $ou.distinguishedname `
                     -server $domain -properties "msDS-ReplAttributeMetaData",userprincipalname,proxyaddresses | select `
                     @{name='Domain';expression={$domain}},userprincipalname,samaccountname,"msDS-ReplAttributeMetaData",proxyaddresses
