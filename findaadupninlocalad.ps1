@@ -2,7 +2,7 @@
 #Require -module activedirectory
 <#PSScriptInfo
 
-.VERSION 0.11
+.VERSION 0.12
 
 .GUID 5e7bfd24-88b8-4e4d-99fd-c4ffbfcf5be6
 
@@ -33,32 +33,6 @@ Param($days=15,$reportpath = "$env:userprofile\Documents")
 Connect-MsolService
 $changes_in_days = [DateTime]::Today.AddDays(-$days) 
 $changes_in_days = (get-date).Adddays(-($days))
-
-Function ADOUList{
-    [cmdletbinding()]
-    param()
-    process{
-        write-host "Starting Function ADOUList"
-        $script:ou_list = "$reportpath\Users\ADOUList.csv"
-        Get-ChildItem $script:ou_list | Where-Object { $_.LastWriteTime -lt $((Get-Date).AddDays(-10))} | Remove-Item -force
-
-        If (!(Test-Path $script:ou_list)){
-            Write-host "This will take a few minutes to gather a list of OU's to search through."
-            foreach($domain in (get-adforest).domains){
-                try{Get-ADObject -ldapFilter "(|(objectclass=organizationalunit)(objectclass=domainDNS)(objectclass=builtinDomain))" `
-                    -Properties "msds-approx-immed-subordinates" -server $domain | where {$_."msds-approx-immed-subordinates" -ne 0} | select `
-                     $hash_domain, DistinguishedName | export-csv $script:ou_list -append -NoTypeInformation}
-                catch{"function ADOUList - $domain - $($_.Exception)" | out-file $default_err_log -append}
-                try{(get-addomain $domain).UsersContainer | Get-ADObject -server $domain | select `
-                     $hash_domain, DistinguishedName | export-csv $script:ou_list -append -NoTypeInformation}
-                catch{"function ADOUList - $domain - $($_.Exception)" | out-file $default_err_log -append}
-            }
-        }
-
-        $script:ous = import-csv $script:ou_list
-    }
-}
-
 
 function searchAADforUPN{
     param($upn)
