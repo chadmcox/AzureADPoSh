@@ -2,7 +2,7 @@
 #Require -module activedirectory
 <#PSScriptInfo
 
-.VERSION 0.10
+.VERSION 0.11
 
 .GUID 5e7bfd24-88b8-4e4d-99fd-c4ffbfcf5be6
 
@@ -34,6 +34,32 @@ Connect-MsolService
 $changes_in_days = [DateTime]::Today.AddDays(-$days) 
 $changes_in_days = (get-date).Adddays(-($days))
 
+Function ADOUList{
+    [cmdletbinding()]
+    param()
+    process{
+        write-host "Starting Function ADOUList"
+        $script:ou_list = "$reportpath\Users\ADOUList.csv"
+        Get-ChildItem $script:ou_list | Where-Object { $_.LastWriteTime -lt $((Get-Date).AddDays(-10))} | Remove-Item -force
+
+        If (!(Test-Path $script:ou_list)){
+            Write-host "This will take a few minutes to gather a list of OU's to search through."
+            foreach($domain in (get-adforest).domains){
+                try{Get-ADObject -ldapFilter "(|(objectclass=organizationalunit)(objectclass=domainDNS)(objectclass=builtinDomain))" `
+                    -Properties "msds-approx-immed-subordinates" -server $domain | where {$_."msds-approx-immed-subordinates" -ne 0} | select `
+                     $hash_domain, DistinguishedName | export-csv $script:ou_list -append -NoTypeInformation}
+                catch{"function ADOUList - $domain - $($_.Exception)" | out-file $default_err_log -append}
+                try{(get-addomain $domain).UsersContainer | Get-ADObject -server $domain | select `
+                     $hash_domain, DistinguishedName | export-csv $script:ou_list -append -NoTypeInformation}
+                catch{"function ADOUList - $domain - $($_.Exception)" | out-file $default_err_log -append}
+            }
+        }
+
+        $script:ous = import-csv $script:ou_list
+    }
+}
+
+
 function searchAADforUPN{
     param($upn)
     if(get-msoluser -UserPrincipalName $upn){
@@ -45,15 +71,19 @@ function searchAADforUPN{
     }
 }
 $time = Measure-Command -Expression { `
-$ad_users = get-adforest | select -ExpandProperty domains -PipelineVariable domain | foreach{
+$ad_users = get-adforest -pipelinevariable forest | select -ExpandProperty domains -PipelineVariable domain | foreach{
     Write-host "Collecting Users from $domain"
-    get-aduser -ldapfilter "(proxyaddresses=*)" `
-        -server $domain -properties "msDS-ReplAttributeMetaData",userprincipalname,proxyaddresses | select `
-        @{name='Domain';expression={$domain}},userprincipalname,samaccountname,"msDS-ReplAttributeMetaData",proxyaddresses
-}} | select minutes
+    Get-ADOrganizationalUnit -filter * -Properties "msds-approx-immed-subordinates" -server $domain `
+        -ResultPageSize 500 -ResultSetSize $null -PipelineVariable ou |`
+            where {$_."msds-approx-immed-subordinates" -ne 0} | foreach{
+                 Write-host "Collecting Users from $($ou).distinguishedname"
+                get-aduser -ldapfilter "(proxyaddresses=*)" -SearchBase $ou.distinguishedname `
+                    -server $domain -properties "msDS-ReplAttributeMetaData",userprincipalname,proxyaddresses | select `
+                    @{name='Domain';expression={$domain}},userprincipalname,samaccountname,"msDS-ReplAttributeMetaData",proxyaddresses
+             }}} | select minutes
             
 Write-host "AD Query Time $(($time).minutes) minutes"
-Write-host "Filtering out objects with no upn or proxy change in last $changes_in_days days"
+Write-host "Filtering out objects with no upn or proxy change in last $days days"
 $time = Measure-Command -Expression { `
     $ad_users_changed = $ad_users | select domain,userprincipalname,proxyaddresses, `
             @{name='ProxyAddressChangeDate';expression={($_ | `
@@ -65,7 +95,7 @@ $time = Measure-Command -Expression { `
                 where {($_.UPNChangeDate -gt $changes_in_days) -or ($_.ProxyAddressChangeDate -gt $changes_in_days)}
 } | select minutes
  Write-host "UPN Filter Time $(($time).minutes) minutes"
- write-host "Found $(($ad_users_changed  | measure-Object).count) Users with UPN Changed in last $changes_in_days days"
+ write-host "Found $(($ad_users_changed  | measure-Object).count) Users with UPN Changed in last $days days"
  Write-host "Validate Objects exist in Azure AD"
  $results = @()
  foreach($adu in $ad_users_changed){
@@ -79,6 +109,6 @@ $time = Measure-Command -Expression { `
     }
  }
  
-
+ Write-host "Done!! Find documents here $reportpath"
  $ad_users_changed | select domain,userprincipalname,ProxyAddressChangeDate,UPNChangeDate  | export-csv "$reportpath\upnchanged.csv" -NoTypeInformation
  $results | export-csv "$reportpath\upnnotfoundinaad.csv" -NoTypeInformation
