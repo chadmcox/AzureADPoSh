@@ -2,7 +2,7 @@
 #Require -module activedirectory
 <#PSScriptInfo
 
-.VERSION 0.14
+.VERSION 0.15
 
 .GUID 5e7bfd24-88b8-4e4d-99fd-c4ffbfcf5be6
 
@@ -30,8 +30,10 @@ from the use or distribution of the Sample Code..
 
 #>
 Param($days=15,$reportpath = "$env:userprofile\Documents")
-Connect-MsolService
-$changes_in_days = [DateTime]::Today.AddDays(-$days) 
+if(!(get-msoluser -MaxResults 1)){Connect-MsolService}
+
+
+
 $changes_in_days = (get-date).Adddays(-($days))
 
 function searchAADforUPN{
@@ -51,13 +53,13 @@ $ad_users = get-adforest -pipelinevariable forest | select -ExpandProperty domai
         -ResultPageSize 500 -ResultSetSize $null -PipelineVariable ou |`
             where {$_."msds-approx-immed-subordinates" -ne 0} | foreach{
                  Write-host "Collecting Users from $(($ou).distinguishedname)"
-                get-aduser -ldapfilter "(proxyaddresses=*)" -SearchBase $ou.distinguishedname -SearchScope OneLevel `
+                get-aduser -Filter {whenchanged -gt $changes_in_days -and proxyaddresses -like "*"} -SearchBase $ou.distinguishedname -SearchScope OneLevel `
                     -server $domain -properties "msDS-ReplAttributeMetaData",userprincipalname,proxyaddresses | select `
                     @{name='Domain';expression={$domain}},userprincipalname,samaccountname,"msDS-ReplAttributeMetaData",proxyaddresses
-             }}} | select minutes
+             }}} | select minutes,seconds
             
-Write-host "AD Query Time $(($time).minutes) minutes"
-Write-host "Filtering out objects with no upn or proxy change in last $days days"
+Write-host "AD Query Time $(($time).minutes) minutes, $(($time).seconds) seconds "
+Write-host "$(($ad_users).count) objects found - Filtering out with no upn or proxy change in last $days days"
 $time = Measure-Command -Expression { `
     $ad_users_changed = $ad_users | select domain,userprincipalname,proxyaddresses, `
             @{name='ProxyAddressChangeDate';expression={($_ | `
