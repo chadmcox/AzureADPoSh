@@ -1,7 +1,7 @@
 #requires -module azureadpreview
 <#PSScriptInfo
 
-.VERSION 0.1
+.VERSION 0.2
 
 .GUID 0e98504a-1173-4af8-a6ab-9564fdbadfa5
 
@@ -25,6 +25,11 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION 
 https://docs.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-beta
+
+.ReleaseNotes
+when taking the sp and passing it to the grant.  In really large environments 100K + applications
+this ends up failing.  To correct this I changed it to gather all the applications into an array 
+and then enumerate through it.
 #>
 Param($reportpath = "$env:userprofile\Documents")
 
@@ -33,11 +38,15 @@ $hash_ignore = @{Name="Ignore";Expression={if(($AADSP.serviceprincipaltype -eq "
     ($AADSP.PublisherName -like "Microsoft*") -or ($AADSP.ServicePrincipalType -eq "ManagedIdentity")){$true}else{$False}}}
 
 connect-azuread
-Write-host "Collecting Data from Azure AD"
+
 #retrieve up to two permissiongrants from all applications
-try{#gets all SPN keys and passwords
-        $results = Get-AzureADServicePrincipal -All $true -PipelineVariable AADSP | `
-            Get-AzureADServicePrincipalOAuth2PermissionGrant -top 2 -PipelineVariable PERMGrant |  select `
+try{
+    Write-host "Collecting Application Data from Azure AD. This could take a really long time." 
+    $application_service_principals = Get-AzureADServicePrincipal -All $true
+
+    Write-host "Collecting Consent Data for each application from Azure AD. This will take a while"
+    $application_service_principal_consents = foreach($aadsp in $application_service_principals){
+        $aadsp | Get-AzureADServicePrincipalOAuth2PermissionGrant -top 2 -PipelineVariable PERMGrant |  select `
                 @{Name="ServicePrincipalDisplayName";Expression={$AADSP.Displayname}}, `
                 @{Name="ServicePrincipalObjectID";Expression={$AADSP.ObjectID}}, `
                 @{Name="ServicePrincipalObjectType";Expression={$AADSP.ObjectType}}, `
@@ -48,39 +57,24 @@ try{#gets all SPN keys and passwords
                 @{Name="ServicePrincipalType";Expression={$AADSP.ServicePrincipalType}},`
                 ConsentType,ExpiryTime,PrincipalId,Scope,StartTime,$hash_ignore
     }
-    catch{throw $_.Exception}
-#summarize the permission grant
-Write-host "Building Summary of Data"
-$summary = $results | where ignore -eq $false | select -expandproperty ServicePrincipalObjectID -Unique -PipelineVariable SpObjID | foreach{
-    $all_grants_per_sp = $results | where ServicePrincipalObjectID -eq $SpObjID
-    $all_grants_per_sp | select -First 1 | select ServicePrincipalDisplayName, ServicePrincipalObjectID, `
-        ServicePrincipalObjectType, AppDisplayName, AppId, PublisherName, AccountEnabled, `
-        ServicePrincipalType,ConsentType,ExpiryTime,Scope, `
-        @{Name="ConsentCount";Expression={ `
-            if(($all_grants_per_sp | measure-object).count -eq 1 -and $_.ConsentType -eq "Principal")
-                {"Single"}elseif($_.ConsentType -eq "Principal"){"Multiple"}}}
+    Write-host "Building Summary of Data"
+    $summary = $application_service_principal_consents | where ignore -eq $false | select -expandproperty ServicePrincipalObjectID -Unique -PipelineVariable SpObjID | foreach{
+        $all_grants_per_sp = $results | where ServicePrincipalObjectID -eq $SpObjID
+        $all_grants_per_sp | select -First 1 | select ServicePrincipalDisplayName, ServicePrincipalObjectID, `
+            ServicePrincipalObjectType, AppDisplayName, AppId, PublisherName, AccountEnabled, `
+            ServicePrincipalType,ConsentType,ExpiryTime,Scope, `
+            @{Name="ConsentCount";Expression={ `
+                if(($all_grants_per_sp | measure-object).count -eq 1 -and $_.ConsentType -eq "Principal")
+                    {"Single"}elseif($_.ConsentType -eq "Principal"){"Multiple"}}}
+    }
 }
+catch{throw $_.Exception}
+#summarize the permission grant
 
-Write-host "Summary:"
-#provide key findings
-New-Object -TypeName psobject -Property @{
-    Name = "Consented_by_Admin"
-    Count = ($summary | where ConsentType -eq "AllPrincipals" | measure-object).count
-} | out-host
-New-Object -TypeName psobject -Property @{
-    Name = "Consented_by_Single_User"
-    Count = ($summary | where ConsentCount -eq "Single" | measure-object).count
-} | out-host
-New-Object -TypeName psobject -Property @{
-    Name = "Consented_by_Multiple_Users"
-    Count = ($summary | where ConsentCount -eq "Multiple" | measure-object).count
-} | out-host
-New-Object -TypeName psobject -Property @{
-    Name = "Consented_with_Write_Scope_Defined"
-    Count = ($summary | where {$_.ConsentType -eq "Principal" -and $_.Scope -like "*Write*"} | measure-object).count
-} | out-host
-
-
+Write-host "Consented_by_Admin: $(($summary | where ConsentType -eq "AllPrincipals" | measure-object).count)"
+Write-host "Consented_by_Single_User: $(($summary | where ConsentCount -eq "Single" | measure-object).count)"
+Write-host "Consented_by_Multiple_Users: $(($summary | where ConsentCount -eq "Multiple" | measure-object).count)"
+Write-host "Consented_with_Write_Scope_Defined: $(($summary | where {$_.ConsentType -eq "Principal" -and $_.Scope -like "*Write*"} | measure-object).count)"
 Write-host "Exported data can be found here: $reportpath"
 $summary | where ConsentType -eq "AllPrincipals" | export-csv "$reportpath\azuread_application_admin_consents.csv" -notypeinformation
 $summary | where ConsentType -eq "Principal" | export-csv "$reportpath\azuread_application_user_consents.csv" -notypeinformation
