@@ -1,7 +1,7 @@
 #requires -module azureadpreview
 <#PSScriptInfo
 
-.VERSION 0.2
+.VERSION 0.3
 
 .GUID 0e98504a-1173-4af8-a6ab-9564fdbadfa5
 
@@ -25,11 +25,6 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION 
 https://docs.microsoft.com/en-us/graph/api/resources/oauth2permissiongrant?view=graph-rest-beta
-
-.ReleaseNotes
-when taking the sp and passing it to the grant.  In really large environments 100K + applications
-this ends up failing.  To correct this I changed it to gather all the applications into an array 
-and then enumerate through it.
 #>
 Param($reportpath = "$env:userprofile\Documents")
 
@@ -42,11 +37,12 @@ connect-azuread
 #retrieve up to two permissiongrants from all applications
 try{
     Write-host "Collecting Application Data from Azure AD. This could take a really long time." 
-    $application_service_principals = Get-AzureADServicePrincipal -All $true
+    try{$application_service_principals = Get-AzureADServicePrincipal -All $true}
+    catch{throw $_.Exception}
 
     Write-host "Collecting Consent Data for each application from Azure AD. This will take a while"
     $application_service_principal_consents = foreach($aadsp in $application_service_principals){
-        $aadsp | Get-AzureADServicePrincipalOAuth2PermissionGrant -top 2 -PipelineVariable PERMGrant |  select `
+        try{$aadsp | Get-AzureADServicePrincipalOAuth2PermissionGrant -top 2 -PipelineVariable PERMGrant |  select `
                 @{Name="ServicePrincipalDisplayName";Expression={$AADSP.Displayname}}, `
                 @{Name="ServicePrincipalObjectID";Expression={$AADSP.ObjectID}}, `
                 @{Name="ServicePrincipalObjectType";Expression={$AADSP.ObjectType}}, `
@@ -55,7 +51,8 @@ try{
                 @{Name="PublisherName";Expression={$AADSP.PublisherName}}, `
                 @{Name="AccountEnabled";Expression={$AADSP.AccountEnabled}}, `
                 @{Name="ServicePrincipalType";Expression={$AADSP.ServicePrincipalType}},`
-                ConsentType,ExpiryTime,PrincipalId,Scope,StartTime,$hash_ignore
+                ConsentType,ExpiryTime,PrincipalId,Scope,StartTime,$hash_ignore}
+            catch{throw $_.Exception}
     }
     Write-host "Building Summary of Data"
     $summary = $application_service_principal_consents | where ignore -eq $false | select -expandproperty ServicePrincipalObjectID -Unique -PipelineVariable SpObjID | foreach{
