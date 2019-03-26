@@ -1,7 +1,7 @@
 #requires -module azureadpreview
 <#PSScriptInfo
 
-.VERSION 0.4
+.VERSION 0.5
 
 .GUID 0e98504a-1173-4af8-a6ab-9564fdbadfa5
 
@@ -35,13 +35,14 @@ $hash_ignore = @{Name="Ignore";Expression={if(($AADSP.serviceprincipaltype -eq "
 connect-azuread
 
 #retrieve up to two permissiongrants from all applications
-try{
+
     Write-host "Collecting Application Data from Azure AD. This could take a really long time." 
     try{$application_service_principals = Get-AzureADServicePrincipal -All $true}
     catch{throw $_.Exception}
 
     Write-host "Collecting Consent Data for each application from Azure AD. This will take a while"
     $application_service_principal_consents = foreach($aadsp in $application_service_principals){
+        write-host "Gathering info from $($AADSP.Displayname)"
         $aadsp | Get-AzureADServicePrincipalOAuth2PermissionGrant -top 2 -PipelineVariable PERMGrant |  select `
                 @{Name="ServicePrincipalDisplayName";Expression={$AADSP.Displayname}}, `
                 @{Name="ServicePrincipalObjectID";Expression={$AADSP.ObjectID}}, `
@@ -63,9 +64,7 @@ try{
                 if(($all_grants_per_sp | measure-object).count -eq 1 -and $_.ConsentType -eq "Principal")
                     {"Single"}elseif($_.ConsentType -eq "Principal"){"Multiple"}}}
     }
-}
-catch{throw $_.Exception}
-#summarize the permission grant
+
 
 Write-host "Consented_by_Admin: $(($summary | where ConsentType -eq "AllPrincipals" | measure-object).count)"
 Write-host "Consented_by_Single_User: $(($summary | where ConsentCount -eq "Single" | measure-object).count)"
