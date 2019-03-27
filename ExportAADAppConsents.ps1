@@ -38,7 +38,7 @@ connect-azuread
 cls
 #retrieve up to two permissiongrants from all applications
 
-Write-host "Collecting Application Service Principals from AD." 
+Write-host "Collecting Application Service Principals from AAD." 
 $time_to_run = measure-command {try{$application_service_principals = Get-AzureADServicePrincipal -Filter "serviceprincipaltype eq 'Application'" -All $true} 
 catch{throw $_.Exception}}
 Write-host "Completed $($time_to_run.minutes) minutes"
