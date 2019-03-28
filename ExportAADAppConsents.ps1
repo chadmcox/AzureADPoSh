@@ -68,7 +68,7 @@ write-host "-----Summary-----"
 Write-host "Consented_by_Admin: $(($summary | where ConsentType -eq "AllPrincipals" | measure-object).count)"
 Write-host "Consented_by_Single_User: $(($summary | where ConsentCount -eq "Single" | measure-object).count)"
 Write-host "Consented_by_Multiple_Users: $(($summary | where ConsentCount -eq "Multiple" | measure-object).count)"
-Write-host "Consented_with_Write_Scope_Defined: $(($summary | where {$_.ConsentType -eq "Principal" -and $_.Scope -like "*Write*"} | measure-object).count)"
+Write-host "Consented_with_Write_Scope_Defined: $(($summary | where {$_.Scope -like "*Write*"} | measure-object).count)"
 #nice write up on the topic of admin perms
 #https://itconnect.uw.edu/wares/msinf/aad/apps/risky-aad-app-perms/
 Write-host "Risky_Consented_with_Read_Hidden_Memberships_Defined: $(($summary | where {$_.Scope -like "*Member.Read.Hidden*"} | measure-object).count)"
