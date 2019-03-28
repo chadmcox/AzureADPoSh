@@ -1,7 +1,7 @@
 #requires -module azureadpreview
 <#PSScriptInfo
 
-.VERSION 0.6
+.VERSION 0.8
 
 .GUID 0e98504a-1173-4af8-a6ab-9564fdbadfa5
 
@@ -62,13 +62,21 @@ $time_to_run = measure-command {$summary = $application_service_principals | sel
 }}
 
 cls
-Write-host "Completed $($time_to_run.minutes) minutes"
+Write-host "Completed $($time_to_run.hours) hours $($time_to_run.minutes) minutes"
 
-write-host "-----"
+write-host "-----Summary-----"
 Write-host "Consented_by_Admin: $(($summary | where ConsentType -eq "AllPrincipals" | measure-object).count)"
 Write-host "Consented_by_Single_User: $(($summary | where ConsentCount -eq "Single" | measure-object).count)"
 Write-host "Consented_by_Multiple_Users: $(($summary | where ConsentCount -eq "Multiple" | measure-object).count)"
 Write-host "Consented_with_Write_Scope_Defined: $(($summary | where {$_.ConsentType -eq "Principal" -and $_.Scope -like "*Write*"} | measure-object).count)"
+#nice write up on the topic of admin perms
+#https://itconnect.uw.edu/wares/msinf/aad/apps/risky-aad-app-perms/
+Write-host "Risky_Consented_with_Read_Hidden_Memberships_Defined: $(($summary | where {$_.Scope -like "*Member.Read.Hidden*"} | measure-object).count)"
+Write-host "Risky_Consented_with_Read_All_Users_Full_Profile_Defined: $(($summary | where {$_.Scope -like "*User.Read.All*"} | measure-object).count)"
+Write-host "Risky_Consented_with_Read_All_Groups_Defined: $(($summary | where {$_.Scope -like "*Group.Read.All*"} | measure-object).count)"
+Write-host "Risky_Consented_with_Write_All_Groups_Defined: $(($summary | where {$_.Scope -like "*Group.Write.All*"} | measure-object).count)"
+Write-host "Risky_Consented_with_Read_Write_All_Directory_Data_Defined: $(($summary | where {$_.Scope -like "*Directory.ReadWrite.All*"} | measure-object).count)"
+Write-host "Risky_Consented_with_Read_All_Directory_Data_Defined: $(($summary | where {$_.Scope -like "*Directory.Read.All*"} | measure-object).count)"
 Write-host "Exported data can be found here: $reportpath"
 $summary | where ConsentType -eq "AllPrincipals" | export-csv "$reportpath\azuread_application_admin_consents.csv" -notypeinformation
 $summary | where ConsentType -eq "Principal" | export-csv "$reportpath\azuread_application_user_consents.csv" -notypeinformation
