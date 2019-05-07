@@ -1,5 +1,8 @@
+#requires -runasadministrator
 <# This is the instructions on how to set up the application and certificate credential.
     $aad = connect-azuread
+    $Global:aadName = (get-azureaddomain | ? { $_.IsDefault -eq $true }).Name
+    $Global:TenantId =$aad.TenantId
     $applicationName = 'GetAllUsersLastSignOn'
     $Global:aadApp = New-AzureADApplication -DisplayName "$applicationName" -IdentifierUris ("https://" + $Global:aadName + "/" + $applicationNoSpace) -ReplyUrls "https://aad.portal.azure.com/$($Global:aadName)"
     $Global:AppId = $Global:aadApp.AppId
@@ -10,12 +13,27 @@
     Add-AzureADDirectoryRoleMember -ObjectId (Get-AzureADDirectoryRole | ? {$_.DisplayName -eq "Directory Readers"}).Objectid -RefObjectId $Global:aadSP.ObjectId
     $roles = @(
 		"AuditLog.Read.All",
+		"Calendars.Read"
+		"ChannelMessage.Read.All",
+		"Contacts.Read",
 		"Directory.Read.All",
+		"EduAdministration.Read.All",
+		"EduAssignments.Read.All",
+		"EduAssignments.ReadBasic.All",
+		"EduRoster.Read.All",
+		"EduRoster.ReadBasic.All",
+		"Files.Read.All",
 		"Group.Read.All",
 		"IdentityRiskEvent.Read.All",
+		"Mail.Read",
+		"MailboxSettings.Read",
+		"Notes.Read.All",
+		"OnlineMeetings.Read.All",
+		"People.Read.All",
 		"Reports.Read.All",
 		"SecurityEvents.Read.All",
         "SecurityEvents.ReadWrite.All",
+		"Sites.Read.All",
 		"User.Read.All"
 	)
     $graph = Get-AzureADServicePrincipal -SearchString "Microsoft Graph" | ? {$_.AppId -eq '00000003-0000-0000-c000-000000000000' }
@@ -43,7 +61,7 @@
         $count = $count + 1
         $authority = "https://login.microsoftonline.com/$($Global:TenantId)"
 	    $authContext = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.AuthenticationContext" -ArgumentList $authority
-	    $cac = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate" -ArgumentList $Global:ApplicationId, $cert
+	    $cac = New-Object "Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate" -ArgumentList $Global:AppId, $cert
 	    $task = $authContext.AcquireTokenAsync("https://graph.microsoft.com", $cac)
 
 	    while (-not $task.IsCompleted)
@@ -66,8 +84,8 @@
     }
     Start-Process "https://login.microsoftonline.com/common/adminconsent?client_id=$($Global:AppId)&state=12345&redirect_uri=https://aad.portal.azure.com/$($Global:aadName)"
     write-host "enter this into the variables inside the script"
-    write-host '$Global:ApplicationId:' $Global:ApplicationId
-    write-host '$Global:Thumbprint:' $Global:Thumbprint
+    write-host '$Global:ApplicationId:' $Global:AppId
+    write-host '$Global:Thumbprint:' $Global:cert.thumbprint
     write-host '$Global:AzureEnvironment :' $aad.Environment.Name
     write-host '$Global:TenantId:' $aad.TenantId
     write-host '$Global:TenantDomain:' $aad.TenantDomain
