@@ -28,7 +28,7 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\memberlessAADGroups.csv"
+param($results = "$env:userprofile\Documents\AADGroupsMissingOwner.csv"
 $azureadgroups = get-azureadmsgroup -all $true | select DisplayName, Mailenabled,Mail,SecurityEnabled, `
         OnPremisesSyncEnabled,CreatedDateTime,visibility, `
         @{Name="DynamicMembership";Expression={if($_.GroupTypes -contains "DynamicMembership"){$true}else{$false}}}, `
