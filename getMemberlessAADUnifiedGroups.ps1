@@ -30,11 +30,17 @@ from the use or distribution of the Sample Code..
 #>
 param($results = "$env:userprofile\Documents\memberlessAADUnifiedGroups.csv"
 write-host "Depending on the size of the environment this script will take a while to run"
+#only prompt for connection if needed
+if(!(Get-AzureADCurrentSessionInfo)){
+    connect-azuread
+}
+#retrieve list of groups from azure ad
 $azureadgroups = get-azureadmsgroup -all $true | select DisplayName, Mailenabled,Mail,SecurityEnabled, `
         OnPremisesSyncEnabled,CreatedDateTime,visibility, `
         @{Name="DynamicMembership";Expression={if($_.GroupTypes -contains "DynamicMembership"){$true}else{$false}}}, `
         @{Name="Unified";Expression={if($_.GroupTypes -contains "Unified"){$true}else{$false}}}, `
         @{Name="ObjectId";Expression={$_.id}} | where {$_.unified -eq $true}
 
- $azureadgroups | where -filterscript {!(Get-AzureADGroupMember -objectid $_.objectid -top 1)} | `
+#filter out groups with no memberships
+$azureadgroups | where -filterscript {!(Get-AzureADGroupMember -objectid $_.objectid -top 1)} | `
   export-csv $results -NoTypeInformation
