@@ -31,9 +31,8 @@ from the use or distribution of the Sample Code..
 param($results = "$env:userprofile\Documents\memberlessAADUnifiedGroups.csv"
 write-host "Depending on the size of the environment this script will take a while to run"
 #only prompt for connection if needed
-if(!(Get-AzureADCurrentSessionInfo)){
-    connect-azuread
-}
+try{Get-AzureADCurrentSessionInfo}
+catch{Connect-azuread}
 #retrieve list of groups from azure ad
 $azureadgroups = get-azureadmsgroup -all $true | select DisplayName, Mailenabled,Mail,SecurityEnabled, `
         OnPremisesSyncEnabled,CreatedDateTime,visibility, `
