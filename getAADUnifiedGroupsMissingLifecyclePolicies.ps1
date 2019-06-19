@@ -29,11 +29,18 @@ from the use or distribution of the Sample Code..
 .DESCRIPTION
 #>
 param($results = "$env:userprofile\Documents\AADUnifiedGroupsMissingLifeCyclePolicy.csv"
+
+#only prompt for connection if needed
+if(!(Get-AzureADCurrentSessionInfo)){
+    connect-azuread
+}
+#retrieve list of groups from azure ad
 $azureadgroups = get-azureadmsgroup -all $true | select DisplayName, Mailenabled,Mail,SecurityEnabled, `
         OnPremisesSyncEnabled,CreatedDateTime,visibility, `
         @{Name="DynamicMembership";Expression={if($_.GroupTypes -contains "DynamicMembership"){$true}else{$false}}}, `
         @{Name="Unified";Expression={if($_.GroupTypes -contains "Unified"){$true}else{$false}}}, `
         @{Name="ObjectId";Expression={$_.id}} | where {$_.OnPremisesSyncEnabled -ne $true}
 
-  $azureadgroups | where -filterscript {!(get-AzureADMSLifecyclePolicyGroup -Id $_.objectid)}  | `
+#use where filter to filter out groups with lifecyclepolicies
+$azureadgroups | where -filterscript {!(get-AzureADMSLifecyclePolicyGroup -Id $_.objectid)}  | `
   export-csv $results -NoTypeInformation
