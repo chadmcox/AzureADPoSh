@@ -29,11 +29,17 @@ from the use or distribution of the Sample Code..
 .DESCRIPTION
 #>
 param($results = "$env:userprofile\Documents\memberlessAADGroups.csv"
+#only prompt for connection if needed
+if(!(Get-AzureADCurrentSessionInfo)){
+    connect-azuread
+}
+#retrieve list of groups from azure ad
 $azureadgroups = get-azureadmsgroup -all $true | select DisplayName, Mailenabled,Mail,SecurityEnabled, `
         OnPremisesSyncEnabled,CreatedDateTime,visibility, `
         @{Name="DynamicMembership";Expression={if($_.GroupTypes -contains "DynamicMembership"){$true}else{$false}}}, `
         @{Name="Unified";Expression={if($_.GroupTypes -contains "Unified"){$true}else{$false}}}, `
         @{Name="ObjectId";Expression={$_.id}} | where {$_.unified -eq $False}
 
- $azureadgroups | where -filterscript {!(Get-AzureADGroupMember -objectid $_.objectid -top 1)} | `
+#filter out groups with members so that groups without members are passed down the pipeline
+$azureadgroups | where -filterscript {!(Get-AzureADGroupMember -objectid $_.objectid -top 1)} | `
   export-csv $results -NoTypeInformation
