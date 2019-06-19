@@ -29,7 +29,6 @@ from the use or distribution of the Sample Code..
 .DESCRIPTION
 #>
 param($results = "$env:userprofile\Documents\AADLicensedGroups.csv"
-write-host "Depending on the size of the environment this script will take a while to run"
 #only prompt for connection if needed
 connect-msonline
 #retrieve list of groups from azure ad
