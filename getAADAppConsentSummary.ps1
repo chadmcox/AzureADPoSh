@@ -1,7 +1,7 @@
 #requires -module azureadpreview
 <#PSScriptInfo
 
-.VERSION 0.8
+.VERSION 2019.6.19
 
 .GUID 0e98504a-1173-4af8-a6ab-9564fdbadfa5
 
@@ -34,7 +34,8 @@ Param($reportpath = "$env:userprofile\Documents")
 $hash_ignore = @{Name="Ignore";Expression={if(($AADSP.serviceprincipaltype -eq "legacy") -or `
     ($AADSP.PublisherName -like "Microsoft*") -or ($AADSP.ServicePrincipalType -eq "ManagedIdentity")){$true}else{$False}}}
 
-connect-azuread
+try{Get-AzureADCurrentSessionInfo}
+catch{Connect-azuread}
 cls
 #retrieve up to two permissiongrants from all applications
 
