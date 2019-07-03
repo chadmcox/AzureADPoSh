@@ -2,7 +2,7 @@
 
 .VERSION 2019.3.7
 
-.GUID 476739f9-d907-4d5a-856e-71f9279955de
+.GUID e7a48d24-7c7a-4a21-b32d-2a86c844b90a
 
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -24,26 +24,29 @@ and (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and
 against any claims or lawsuits, including attorneys` fees, that arise or result
 from the use or distribution of the Sample Code..
 
-.TAGS 
+.TAGS Get-AzureRmContext Set-AzureRmContext Get-AzureRmRoleAssignment
 
 .DETAILS
 
 .EXAMPLE
 
+
 #>
 
 param($reportpath="$env:userprofile\Documents")
 
+
 function isconsentbad{
     param($scopes)
     $riskyconsents = @("Write","Member.Read.Hidden","User.Read.All","Member.Read.Hidden", `
-        "Group.Read.All","Directory.Read.All","Mail","File","Calendar")
+        "Group.Read.All","Directory.Read.All","Mail","Calendar")
     foreach($rs in $riskyconsents){
           if($scopes -match $rs){
             return $true;exit
           }
     }
 }
+
 
 $report = "$reportpath\AAD_APPsp_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
@@ -67,8 +70,7 @@ $aadapps | foreach {
 
 
 $hash_ignore = @{Name="Ignore";Expression={if(($aadsp.replyurls -like "*.sharepoint.com*" `
-    -and $aadsp.serviceprincipaltype -eq "legacy") -or (($aadsp.PublisherName -like "Microsoft*") 
-    -and ($aadsp.PublisherName -notlike "Microsoft Accounts")) `
+    -and $aadsp.serviceprincipaltype -eq "legacy") -or (($aadsp.PublisherName -like "Microsoft*") -and ($aadsp.PublisherName -notlike "Microsoft Accounts")) `
     -or ($aadsp.ServicePrincipalType -eq "ManagedIdentity")){$true}else{$False}}}
 
 write-host "Getting every security principal"
@@ -76,7 +78,7 @@ $aadsps = get-azureadserviceprincipal -all $true
 
 write-host "Building Report - this will take a while"
 @(foreach($aadsp in $aadsps){
-    $grants = $aadsp | where serviceprincipaltype -eq 'Application' | Get-AzureADServicePrincipalOAuth2PermissionGrant -top 2
+    $grants = $aadsp | where serviceprincipaltype -eq 'Application' | Get-AzureADServicePrincipalOAuth2PermissionGrant -top 4
     $aadsp | select objectid,appId, displayname,ServicePrincipalType ,PublisherName,AccountEnabled,$hash_ignore,Homepage, `
     @{N="keyCredentialsExpirationDate";E={$aadsp.keycredentials.enddate | sort -Descending | select -First 1}}, `
     @{N="PwdCredentialsExpirationDate";E={$aadsp.passwordcredentials.enddate | sort -Descending | select -First 1}}, `
