@@ -28,7 +28,8 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\AADAllUsersGroupAppRoleAssignment.csv"
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_AllUsersAssignedtoAppRole_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 #only prompt for connection if needed
 try{Get-AzureADCurrentSessionInfo}
 catch{Connect-azuread}
