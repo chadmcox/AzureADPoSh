@@ -44,33 +44,28 @@ from the use or distribution of the Sample Code..
  
 
 #> 
-Param()
-function gatherAzureADGuestUsersUsingMSOL{
-    [CmdletBinding()]
-    param()
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_Guests_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
-    #this function leverages the msonline module
-    #Connect-MsolService
 
-    get-MsolUser -all | where usertype -eq "guest" | select UserPrincipalName,DisplayName,UserType,StsRefreshTokensValidFrom,`
-        BlockCredential,ObjectId,whencreated,`
-        @{Name="mfaState";Expression={$_.StrongAuthenticationRequirements.state}}, `
-        @{Name="mfaMethod";Expression={if($_.StrongAuthenticationMethods){`
-                ($_.StrongAuthenticationMethods | where IsDefault -eq $true).MethodType}else{"Not Defined"}}}, `
-        @{Name="AuthenticationType";Expression={($aad_domains | `
-                where name -eq $($AADUser.UserPrincipalName.split('@')[1])).authentication}}
+$AAD_Domains = (Get-AzureADDomain).name
+$hash_MSA = @{Name="PossibleDupMSA";Expression={isMSAccount -upn ($guest).UserPrincipalName}}
+$hash_pending = @{name='PendinginDays';
+    expression={if($guest.UserState -eq "PendingAcceptance"){
+        (new-TimeSpan($($guest.UserStateChangedOn)) $(Get-Date)).days}}}
 
+function isMSAccount{
+    param($upn)
+    foreach($aadd in $AAD_Domains){
+        if(($upn -split "#")[0] -like "*_$aadd"){
+            return $True ;exit
+        }
+    }
+    $false
 }
-function gatherAzureADGuestUsersUsinAzureAD{
-    [CmdletBinding()]
-    param()
 
-    #this function leverages the azuread module
-    #dows not contain mfa information
-    Connect-AzureAD
-
-    Get-AzureADUser -Filter "userType eq 'Guest'" -All $true | select `
-        UserPrincipalName,DisplayName,UserType,CreationType,`
-        RefreshTokensValidFromDateTime,AccountEnabled,objectid
-}
-gatherAzureADGuestUsersUsingMSOL 
+#this will take a while to run as all users are being retrieved
+@(Get-AzureADUser -Filter "userType eq 'Guest'" -All $true -PipelineVariable guest | foreach{
+        $guest | select objectid,UserPrincipalName, UserState, UserStateChangedOn,UserType, `
+        AccountEnabled,$hash_MSA,$hash_pending
+    }) | export-csv $report -nottypeinformation
