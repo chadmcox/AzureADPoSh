@@ -28,7 +28,8 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\AADDeviceStatus.csv"
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_DeviceStatus_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 #only prompt for connection if needed
 try{Get-AzureADCurrentSessionInfo}
 catch{Connect-azuread}
@@ -36,4 +37,4 @@ $hash_Stale = @{Name="Stale";
   Expression={if((new-TimeSpan($_.ApproximateLastLogonTimeStamp) $(Get-Date)).days -gt 365){$true}else{$false}}}
   
 get-azureaddevice -all $true | select $hash_Stale, * -ExcludeProperty DevicePhysicalIds,AlternativeSecurityIds | `
-  export-csv $results -NoTypeInformation
+  export-csv $report -NoTypeInformation
