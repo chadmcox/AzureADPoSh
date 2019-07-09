@@ -28,7 +28,8 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\AADSettings.csv"
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_Settings_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
 $ExpectedResults = @{
 UsersPermissionToUserConsentToAppEnabled=$false;
@@ -66,4 +67,4 @@ $CompanyInformation | get-member -MemberType Properties | `
         @{n='Results';e={checkResults -setting $setting -value ($CompanyInformation).$setting `
             -expectedvalue $ExpectedResults[$setting]}}
 } | where {$_.Expectedvalue -ne $null} | `
-  export-csv $results -NoTypeInformation
+  export-csv $report -NoTypeInformation
