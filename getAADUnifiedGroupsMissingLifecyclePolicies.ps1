@@ -28,7 +28,8 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\AADUnifiedGroupsMissingLifeCyclePolicy.csv"
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_UnifiedGroupsMissingLifetimePolicy_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
 #only prompt for connection if needed
 try{Get-AzureADCurrentSessionInfo}
@@ -42,4 +43,4 @@ $azureadgroups = get-azureadmsgroup -all $true | select DisplayName, Mailenabled
 
 #use where filter to filter out groups with lifecyclepolicies
 $azureadgroups | where -filterscript {!(get-AzureADMSLifecyclePolicyGroup -Id $_.objectid)}  | `
-  export-csv $results -NoTypeInformation
+  export-csv $report -NoTypeInformation
