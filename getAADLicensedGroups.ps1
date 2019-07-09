@@ -28,10 +28,11 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\AADLicensedGroups.csv"
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_LicensedGroups_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 #only prompt for connection if needed
 connect-msonline
 #retrieve list of groups from azure ad
 Get-MsolGroup -All | Where {$_.Licenses} | Select ObjectId, DisplayName, `
     @{Name="Licenses";Expression={$_.Licenses | Select -ExpandProperty SkuPartNumber}} | `
-  export-csv $results -NoTypeInformation
+  export-csv $report -NoTypeInformation
