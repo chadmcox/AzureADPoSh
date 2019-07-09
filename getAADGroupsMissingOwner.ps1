@@ -28,7 +28,8 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\AADGroupsMissingOwner.csv"
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_GroupsMissingOwner_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 #only prompt for connection if needed
 try{Get-AzureADCurrentSessionInfo}
 catch{Connect-azuread}
@@ -41,4 +42,4 @@ $azureadgroups = get-azureadmsgroup -all $true | select DisplayName, Mailenabled
 
 #filter out groups with owners pass groups with no owners through pipeline
 $azureadgroups | where -filterscript {!(Get-AzureADGroupOwner -objectid $_.objectid -top 1)}  | `
-  export-csv $results -NoTypeInformation
+  export-csv $report -NoTypeInformation
