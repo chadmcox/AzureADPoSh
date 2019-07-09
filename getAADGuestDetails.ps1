@@ -68,4 +68,4 @@ function isMSAccount{
 @(Get-AzureADUser -Filter "userType eq 'Guest'" -All $true -PipelineVariable guest | foreach{
         $guest | select objectid,UserPrincipalName, UserState, UserStateChangedOn,UserType, `
         AccountEnabled,$hash_MSA,$hash_pending
-    }) | export-csv $report -nottypeinformation
+    }) | export-csv $report -notypeinformation
