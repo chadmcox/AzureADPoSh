@@ -28,7 +28,8 @@ from the use or distribution of the Sample Code..
 
 .DESCRIPTION
 #>
-param($results = "$env:userprofile\Documents\AADAppRoleMembers.csv"
+param($reportpath="$env:userprofile\Documents")
+$report = "$reportpath\AAD_AppRoleMembers_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
 #only prompt for connection if needed
 try{Get-AzureADCurrentSessionInfo}
@@ -75,4 +76,4 @@ foreach($sp in $azureADSPs){
     @{Name="RoleDisplayName";Expression={if(($AADSAR).id -ne '00000000-0000-0000-0000-000000000000'){$hashedroles[$(($AADSAR).id)].Displayname}else{"Default Access"}}}, `
     @{Name="RoleValue";Expression={$hashedroles[$(($AADSAR).id)].value}}, `
     @{Name="RoleDescription";Expression={$hashedroles[$(($AADSAR).id)].description}}
-} | export-csv $results -NoTypeInformation
+} | export-csv $report -NoTypeInformation
