@@ -39,6 +39,12 @@ CIS Microsoft Azure Foundation
 param($reportpath="$env:userprofile\Documents")
 $report = "$reportpath\AAD_PrivRoleMembers_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
+function getConsentedApps{
+    param($objectid)
+    $consented = Get-AzureADUserOAuth2PermissionGrant -ObjectId $objectid -PipelineVariable grants | select -ExpandProperty scope
+    return [string]$consented
+}
+
 #region hash variables for calculated properties
 $hash_priorityrole = @{Name="Tier";Expression={getPriorityLevel -guid $role.RoleTemplateId}}
 $hash_userrole = @{Name="Role";Expression={$role.displayname}}
@@ -51,6 +57,8 @@ $hash_spkeyexpired = @{Name="ExpiredKEYCredentials";
 $hash_da = @{Name="Admin";Expression={if($adminGuids -contains $role.RoleTemplateId){$true}else{$false}}}
 $hash_AgeinDays = @{Name="RefreshTokenAgeinDays";
         Expression={(new-TimeSpan($_.RefreshTokensValidFromDateTime) $(Get-Date)).days}}
+$hash_AppConsents = @{Name="consentedScopes";
+        Expression={getConsentedApps -objectid $_.ObjectID}}
 
 #endregion
 
@@ -89,4 +97,4 @@ $todaysdate = (get-date).DateTime
 @(Get-AzureADDirectoryRole -PipelineVariable role | foreach{Get-AzureADDirectoryRoleMember -objectid $_.objectid -PipelineVariable rolemem | select `
     $hash_userroleteplateid,$hash_userroleid,$hash_userrole,$hash_priorityrole,$hash_da,DisplayName,UserPrincipalName,mail,ObjectID,objecttype,AccountEnabled,usertype, `
     PublisherName,ServicePrincipalType,$hash_sppwdexpired,$hash_spkeyexpired,RefreshTokensValidFromDateTime,$hash_AgeinDays, `
-    PasswordPolicies,DirSyncEnabled | sort priorityrole,role}) | export-csv $report -notypeinformation
+    PasswordPolicies,DirSyncEnabled,$hash_AppConsents | sort priorityrole,role}) | export-csv $report -notypeinformation
