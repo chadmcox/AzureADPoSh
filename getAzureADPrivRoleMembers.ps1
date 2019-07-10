@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 2019.7.8
+.VERSION 2019.7.10
 
 .GUID e7a48d24-7c7a-4a21-b32d-2a86c844b90a
 
@@ -37,11 +37,12 @@ CIS Microsoft Azure Foundation
 
 #>
 param($reportpath="$env:userprofile\Documents")
-$report = "$reportpath\AAD_PrivRoleMembers_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+$report = "$reportpath\$((Get-AzureADTenantDetail).DisplayName)_AAD_PrivRoleMembers_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
 function getConsentedApps{
     param($objectid)
-    $consented = Get-AzureADUserOAuth2PermissionGrant -ObjectId $objectid -PipelineVariable grants | select -ExpandProperty scope
+    $consented = Get-AzureADUserOAuth2PermissionGrant -ObjectId $objectid -PipelineVariable grants | `
+        select -ExpandProperty scope
     return [string]$consented
 }
 
@@ -59,6 +60,8 @@ $hash_AgeinDays = @{Name="RefreshTokenAgeinDays";
         Expression={(new-TimeSpan($_.RefreshTokensValidFromDateTime) $(Get-Date)).days}}
 $hash_AppConsents = @{Name="consentedScopes";
         Expression={getConsentedApps -objectid $_.ObjectID}}
+$hash_lastsignon = @{name='LastSignOn';
+    expression={getaadlastazureadlogon -upn $_.userprincipalname}}
 
 #endregion
 
@@ -81,20 +84,46 @@ $Level2Guids =  "729827e3-9c14-49f7-bb1b-9608f156bbb8", ` # Password Administrat
 $adminGuids = $Level0Guids + $Level1Guids + $Level2Guids
 #endregion
 
+function getaadlastazureadlogon{
+param($upn)
+    $last_signon_date = (Get-AzureADAuditSignInLogs -Filter "userPrincipalName eq '$upn'" -top 1).CreatedDateTime
+    if($last_signon_date){get-date $last_signon_date -Format MM/dd/yyyy}
+}
+
 function getPriorityLevel{
     param($guid)
     if($Level0Guids -contains $guid){
-        return 0
+        return "Critical"
     }elseif($Level1Guids -contains $guid){
-        return 1
+        return "High"
     }Elseif($Level2Guids -contains $guid){
-        return 2
+        return "Medium"
+    }else{
+        return "Low"
     }
 }
 
+Write-host "Retrieving Azure AD Privileged Role Members."
 #query every role in use within Azure AD
 $todaysdate = (get-date).DateTime
-@(Get-AzureADDirectoryRole -PipelineVariable role | foreach{Get-AzureADDirectoryRoleMember -objectid $_.objectid -PipelineVariable rolemem | select `
-    $hash_userroleteplateid,$hash_userroleid,$hash_userrole,$hash_priorityrole,$hash_da,DisplayName,UserPrincipalName,mail,ObjectID,objecttype,AccountEnabled,usertype, `
-    PublisherName,ServicePrincipalType,$hash_sppwdexpired,$hash_spkeyexpired,RefreshTokensValidFromDateTime,$hash_AgeinDays, `
+@(Get-AzureADDirectoryRole -PipelineVariable role | foreach{
+    Write-host "Retrieving Role Members from: $($role.displayname)."
+    Get-AzureADDirectoryRoleMember -objectid $_.objectid -PipelineVariable rolemem | select `
+    $hash_userroleteplateid,$hash_userroleid,$hash_userrole,$hash_priorityrole,$hash_da,DisplayName, `
+    UserPrincipalName,mail,ObjectID,objecttype,AccountEnabled,usertype,PublisherName,ServicePrincipalType, `
+    $hash_sppwdexpired,$hash_spkeyexpired,RefreshTokensValidFromDateTime,$hash_AgeinDays,$hash_lastsignon, `
     PasswordPolicies,DirSyncEnabled,$hash_AppConsents | sort priorityrole,role}) | export-csv $report -notypeinformation
+
+write-host "Report can be found here: $report" -ForegroundColor Yellow
+
+$recommendation_report = "$reportpath\$((Get-AzureADTenantDetail).DisplayName)_AAD_StalePrivRoleMembers_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+import-csv $report | where {$_.LastSignOn -eq "" -and  [int]$($_.RefreshTokenAgeinDays) -gt 120 `
+    -and $_.ObjectType -eq "user"} | export-csv $recommendation_report -NoTypeInformation
+
+write-host ""
+write-host "Stale Privileged Member Report can be found here:"
+write-host "$recommendation_report" -ForegroundColor Yellow
+write-host ""
+write-host "Stale Summary by Role:"
+import-csv $report | where {$_.LastSignOn -eq "" -and  [int]$($_.RefreshTokenAgeinDays) -gt 120 `
+    -and $_.ObjectType -eq "user"} | group role | select name, count | Out-Host
