@@ -30,7 +30,7 @@ from the use or distribution of the Sample Code..
 #>
 param($reportpath="$env:userprofile\Documents")
 $report = "$reportpath\AAD_MemberlessUnifiedGroups_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
-
+write-host "Do not use this to find groups to delete outside of office 365.  do not delete directory in Azure AD"
 write-host "Depending on the size of the environment this script will take a while to run"
 #only prompt for connection if needed
 try{Get-AzureADCurrentSessionInfo}
