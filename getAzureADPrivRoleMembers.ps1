@@ -1,3 +1,4 @@
+#requires -module Azureadpreview,msonline
 <#PSScriptInfo
 
 .VERSION 2019.7.10
