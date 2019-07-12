@@ -1,7 +1,7 @@
 #Requires -Module azureadpreview
 <#PSScriptInfo
 
-.VERSION 2019.7.10
+.VERSION 2019.7.12
 
 .GUID efd0d932-eeb4-4454-859a-1ab19f84fc8f
 
