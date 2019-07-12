@@ -34,10 +34,11 @@ $report = "$reportpath\$((Get-AzureADTenantDetail).DisplayName)_AAD_ChangestoGlo
 @(Get-AzureADDirectoryRole -PipelineVariable role | `
     where RoleTemplateId -eq '62e90394-69f5-4237-9190-012177145e10' | `
         Get-AzureADDirectoryRoleMember -PipelineVariable rolemem | foreach {
-            Get-AzureADAuditDirectoryLogs -Filter "targetResources/any(tr:tr/displayName eq '$($rolemem.displayname)')" `
+            Get-AzureADAuditDirectoryLogs -Filter "targetResources/any(t:t/id eq '$($rolemem.objectid)')" `
                 -all $true | select `
                     ActivityDateTime,Result,ResultReason, `
                     @{N="Target";E={$rolemem.displayname}}, `
                     Category,LoggedByService,ActivityDisplayName, `
-                    @{N="InitiatedBy";E={$_.InitiatedBy.user.DisplayName}}
+                    @{N="InitiatedBy";E={if($_.InitiatedBy.user.DisplayName){
+                        $_.InitiatedBy.user.DisplayName}else{$_.InitiatedBy.user.UserPrincipalName}}}
 }) | export-csv $report -notypeinformation
