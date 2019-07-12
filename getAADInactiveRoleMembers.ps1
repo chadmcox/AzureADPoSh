@@ -35,7 +35,8 @@ from the use or distribution of the Sample Code..
 param($reportpath="$env:userprofile\Documents")
 $report = "$reportpath\$((Get-AzureADTenantDetail).DisplayName)_AAD_InactiveRoleMembers_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 Get-AzureADDirectoryRole -PipelineVariable role | `
-    where {$_.DisplayName -like "*Administrator" -and $_.DisplayName -notlike "* Service Administrator"} | `
+    where {$_.DisplayName -like "*Administrator" -and $_.DisplayName -notlike "* Service Administrator" -and $_.DisplayName `
+        -ne "Service Support Administrator"} | `
         Get-AzureADDirectoryRoleMember -PipelineVariable rolemem | `
             where -filterscript {!(Get-AzureADAuditDirectoryLogs -Filter "initiatedBy/user/userPrincipalName eq 
                 '$($rolemem.userprincipalname)'" -all $true)} | select `
