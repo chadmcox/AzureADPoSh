@@ -30,7 +30,8 @@ from the use or distribution of the Sample Code..
 .DETAILS
 
 .EXAMPLE
-
+this script looks for conditional access policies being applied to memers of aad roles.
+Ideally we would look for things like "Baseline policy: Require MFA for admins" being used
 
 #>
 
