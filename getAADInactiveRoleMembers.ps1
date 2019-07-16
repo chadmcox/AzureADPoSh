@@ -37,7 +37,7 @@ $report = "$reportpath\$((Get-AzureADTenantDetail).DisplayName)_AAD_InactiveRole
 connect-azuread
 
 Get-AzureADDirectoryRole -PipelineVariable role | `
-    where {$_.DisplayName -like "*Administrator" -and $_.DisplayName -notlike "* Service Administrator" -and $_.DisplayName `
+    where {$_.DisplayName -like "*Administrator" -and $_.DisplayName `
         -ne "Service Support Administrator"} | `
         Get-AzureADDirectoryRoleMember -PipelineVariable rolemem | `
             where -filterscript {!(Get-AzureADAuditDirectoryLogs -Filter "initiatedBy/user/userPrincipalName eq 
