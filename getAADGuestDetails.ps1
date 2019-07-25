@@ -1,7 +1,7 @@
 #Requires -Module msonline
 <#PSScriptInfo
 
-.VERSION 0.1
+.VERSION 2019.7.25
 
 .GUID efd0d932-eeb4-4454-859a-1ab19f84fc8f
 
@@ -47,12 +47,19 @@ from the use or distribution of the Sample Code..
 param($reportpath="$env:userprofile\Documents")
 $report = "$reportpath\AAD_Guests_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
+function getaadlastazureadlogon{
+param($upn)
+    <#this functions checks to see if the objected has signed in over the last 30 days#>
+    $last_signon_date = (Get-AzureADAuditSignInLogs -Filter "userPrincipalName eq '$upn'" -top 1).CreatedDateTime
+    if($last_signon_date){get-date $last_signon_date -Format MM/dd/yyyy}
+}
 
 $AAD_Domains = (Get-AzureADDomain).name
 $hash_MSA = @{Name="PossibleDupMSA";Expression={isMSAccount -upn ($guest).UserPrincipalName}}
 $hash_pending = @{name='PendinginDays';
     expression={if($guest.UserState -eq "PendingAcceptance"){
         (new-TimeSpan($($guest.UserStateChangedOn)) $(Get-Date)).days}}}
+$hash_lastsignon = @{N='LastSignOn';E={getaadlastazureadlogon -upn $_.userprincipalname}}
 
 function isMSAccount{
     param($upn)
@@ -66,6 +73,6 @@ function isMSAccount{
 
 #this will take a while to run as all users are being retrieved
 @(Get-AzureADUser -Filter "userType eq 'Guest'" -All $true -PipelineVariable guest | foreach{
-        $guest | select objectid,UserPrincipalName, UserState, UserStateChangedOn,UserType, `
+        $guest | select objectid,UserPrincipalName, UserState, UserStateChangedOn,UserType,$hash_lastsignon, `
         AccountEnabled,$hash_MSA,$hash_pending
     }) | export-csv $report -notypeinformation
