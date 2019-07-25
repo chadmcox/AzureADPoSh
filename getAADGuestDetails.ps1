@@ -1,4 +1,4 @@
-#Requires -Module msonline
+#Requires -Module azureadpreview
 <#PSScriptInfo
 
 .VERSION 2019.7.25
