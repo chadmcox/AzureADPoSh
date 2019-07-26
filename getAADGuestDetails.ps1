@@ -1,7 +1,7 @@
 #Requires -Module azureadpreview
 <#PSScriptInfo
 
-.VERSION 2019.7.25
+.VERSION 2019.7.26
 
 .GUID efd0d932-eeb4-4454-859a-1ab19f84fc8f
 
@@ -48,9 +48,9 @@ param($reportpath="$env:userprofile\Documents")
 $report = "$reportpath\AAD_Guests_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
 function getaadlastazureadlogon{
-param($upn)
+param($id)
     <#this functions checks to see if the objected has signed in over the last 30 days#>
-    $last_signon_date = (Get-AzureADAuditSignInLogs -Filter "userPrincipalName eq '$upn'" -top 1).CreatedDateTime
+    $last_signon_date = (Get-AzureADAuditSignInLogs -Filter "UserId eq '$id'" -top 1).CreatedDateTime
     if($last_signon_date){get-date $last_signon_date -Format MM/dd/yyyy}
 }
 
@@ -59,7 +59,7 @@ $hash_MSA = @{Name="PossibleDupMSA";Expression={isMSAccount -upn ($guest).UserPr
 $hash_pending = @{name='PendinginDays';
     expression={if($guest.UserState -eq "PendingAcceptance"){
         (new-TimeSpan($($guest.UserStateChangedOn)) $(Get-Date)).days}}}
-$hash_lastsignon = @{N='LastSignOn';E={getaadlastazureadlogon -upn $_.userprincipalname}}
+$hash_lastsignon = @{N='LastSignOn';E={getaadlastazureadlogon -id $_.objectid}}
 
 function isMSAccount{
     param($upn)
