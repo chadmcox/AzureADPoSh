@@ -78,4 +78,4 @@ write-host "Results can be found here $resultsfile" -ForegroundColor Yellow
 
 
 
-Get-AzureADServicePrincipalKeyCredential -ObjectId 23209a40-044a-4839-801f-eb37889e8326
+
