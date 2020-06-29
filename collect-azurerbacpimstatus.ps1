@@ -1,7 +1,7 @@
 #Requires -modules Az.Accounts,Az.Resources,azureadpreview
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.4.16
+.VERSION 2020.6.29
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -53,7 +53,7 @@ function Create-AZRBACResults{
     $azureResources = Retrieve-AllAZResources
     foreach($azr in $azureResources){
         $pim = $null;$pim = Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).ResourceID)'"
-        Get-AzRoleAssignment -scope $azr.ResourceID -pv azra | where {$azra.Scope -eq $azr.ResourceID} | foreach{
+        Get-AzRoleAssignment -scope $azr.ResourceID -pv azra | where {$azra.Scope -eq $azr.ResourceID} |  foreach{
             $member = $null;$member = Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -Filter "externalId eq '$(($azra).RoleAssignmentId)'"
             $azra | select @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
                 @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
@@ -75,6 +75,30 @@ function Create-AZRBACResults{
                 @{Name="PIMMemberAssignmentState";Expression={$member.AssignmentState}}, `
                 @{Name="PIMMemberType";Expression={$member.MemberType}}
         }
+        Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where {$_.AssignmentState -eq "Eligible" -and $_.membertype -eq "Direct"} | foreach {
+            $member = $null;$member = Get-AzureADObjectByObjectId -ObjectId $azpra.SubjectId
+            $role = $null; $role = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -id $azpra.RoleDefinitionId -ResourceId $azpra.ResourceId
+            $azpra | select `
+                @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
+                @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
+                @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
+                @{Name="ResourceID";Expression={$azr.ResourceID}}, `
+                @{Name="ResourceName";Expression={$azr.ResourceName}}, `
+                @{Name="ResourceType";Expression={$azr.ResourceType}}, `
+                @{Name="PIMResourceID";Expression={$pim.ID}}, `
+                @{Name="PIMRoleStatus";Expression={$pim.status}}, `
+                @{Name="PIMRoleRegisteredDateTime";Expression={$pim.RegisteredDateTime}}, `
+                @{Name="PIMRegisteredRoot";Expression={$pim.RegisteredRoot}}, `
+                @{Name="RoleAssignmentId";Expression={$role.ExternalId}}, `
+                @{Name="RoleDefinitionName";Expression={$role.DisplayName}}, `
+                @{Name="MemberObjectID";Expression={$azpra.SubjectId}}, `
+                @{Name="MemberDisplayname";Expression={$member.DisplayName}}, `
+                @{Name="MemberSigninName";Expression={$member.userprincipalname}}, `
+                @{Name="MemberObjectType";Expression={$member.ObjectType}}, `
+                @{Name="PIMMemberStartDateTime";Expression={$azpra.StartDateTime}}, `
+                @{Name="PIMMemberAssignmentState";Expression={$azpra.AssignmentState}}, `
+                @{Name="PIMMemberType";Expression={$azpra.MemberType}}
+            }
     }
 }
 
