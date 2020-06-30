@@ -1,7 +1,7 @@
 #Requires -modules Az.Accounts,Az.Resources,azureadpreview
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.6.29
+.VERSION 2020.6.30
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -51,10 +51,13 @@ function Retrieve-AllAZResources{
 
 function Create-AZRBACResults{
     $azureResources = Retrieve-AllAZResources
+    $progresstotal = $azureResources.count
+    $i = 0
     foreach($azr in $azureResources){
+        Write-Progress -Activity "Enumerating Azure Resources" -Status "Enumerating" -PercentComplete ($I/$progresstotal*100);$i++
         $pim = $null;$pim = Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).ResourceID)'"
         Get-AzRoleAssignment -scope $azr.ResourceID -pv azra | where {$azra.Scope -eq $azr.ResourceID} |  foreach{
-            $member = $null;$member = Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -Filter "externalId eq '$(($azra).RoleAssignmentId)'"
+            $member = $null;if($PIM){$member = Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -Filter "externalId eq '$(($azra).RoleAssignmentId)'"}
             $azra | select @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
                 @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
                 @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
@@ -75,7 +78,7 @@ function Create-AZRBACResults{
                 @{Name="PIMMemberAssignmentState";Expression={$member.AssignmentState}}, `
                 @{Name="PIMMemberType";Expression={$member.MemberType}}
         }
-        Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where {$_.AssignmentState -eq "Eligible" -and $_.membertype -eq "Direct"} | foreach {
+        if($pim){Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where {$_.AssignmentState -eq "Eligible" -and $_.membertype -eq "Direct"} | foreach {
             $member = $null;$member = Get-AzureADObjectByObjectId -ObjectId $azpra.SubjectId
             $role = $null; $role = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -id $azpra.RoleDefinitionId -ResourceId $azpra.ResourceId
             $azpra | select `
@@ -98,8 +101,9 @@ function Create-AZRBACResults{
                 @{Name="PIMMemberStartDateTime";Expression={$azpra.StartDateTime}}, `
                 @{Name="PIMMemberAssignmentState";Expression={$azpra.AssignmentState}}, `
                 @{Name="PIMMemberType";Expression={$azpra.MemberType}}
-            }
+            }}
     }
+    Write-Progress -activity "Enumerating Azure Resources" -Status "Enumerating" -Completed
 }
 
 Create-AZRBACResults | export-csv $report -notypeinformation
