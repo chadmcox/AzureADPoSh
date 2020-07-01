@@ -24,9 +24,9 @@ from the use or distribution of the Sample Code..
  retrieves all objects and  
 #> 
 param($reportpath="$env:userprofile\Documents")
-$export_report = "$reportpath\Azure_RBAC_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
-$pim_report = "$reportpath\Azure_PIM_Status_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
-$notpim_report = "$reportpath\Azure_Resources_PIM_Not_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+$export_report = "$reportpath\Azure_Resources_RBAC_All_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+$pim_report = "$reportpath\Azure_Resources_RBAC_PIM_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+$notpim_report = "$reportpath\Azure_Resources_RBAC_PIM_Not_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
 function Retrieve-AllAZResources{
     Get-AzManagementGroup | select * | select @{Name="SubscriptionID";Expression={$_.TenantId}}, `
@@ -51,11 +51,10 @@ function Retrieve-AllAZResources{
     }
 }
 function Create-AZRBACResults{
-    $azureResources = Retrieve-AllAZResources
-    $progresstotal = $azureResources.count; write-host "Only $progresstotal to enumerate!! YAY!!!!"
+    $progresstotal = $azureResources.count; write-host "First Exporting Resource RBAC Members only $progresstotal to enumerate!!"
     $i = 0
     foreach($azr in $azureResources){
-        Write-Progress -Activity "Enumerating Azure Resources" -Status "Enumerating" -PercentComplete ($I/$progresstotal*100);$i++
+        Write-Progress -Activity "Expanding Azure Resources: " -Status "Enumerating $I of $progresstotal" -PercentComplete ($I/$progresstotal*100);$i++
         Get-AzRoleAssignment -scope $azr.ResourceID -pv azra | where {$azra.Scope -eq $azr.ResourceID} | select `
             @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
             @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
@@ -74,12 +73,52 @@ function Create-AZRBACResults{
 }
 function find-AZResourcesNotPIMEnabled{
     write-host "searching for non pim enabled resources"
-    $azureResources = import-csv $export_report | group resourceid
-    $progresstotal = $azureResources.count; write-host "Looking through $progresstotal resources to see if they are not enabled!! argh!!!!"
-    $azureResources | where {!(Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($_).name)'")} | select -ExpandProperty group
+    $azureResourceslist = import-csv $export_report | group resourceid
+    $progresstotal = $azureResourceslist.count; write-host "Second Looking through $progresstotal resources to see if they are not enabled!! (no progress bar)"
+    $azureResourceslist | where {!(Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($_).name)'")} | select -ExpandProperty group
 }
-
-Create-AZRBACResults | export-csv $export_report -NoTypeInformation
-write-host "Complete Export found here $export_report"
-write-host "Creating Report for Resources pim not enabled" -ForegroundColor Yellow
-find-AZResourcesNotPIMEnabled | export-csv $notpim_report -NoTypeInformation
+function find-AZResourcesPIMEnabled{
+    $progresstotal = $azureResources.count; write-host "Last Exporting PIM Managed RBAC Members, only $progresstotal to enumerate!!"
+    $i = 0
+    foreach($azr in $azureResources){
+        Write-Progress -Activity "Expanding Azure Resources Registered in PIM: " -Status "Enumerating $I of $progresstotal" -PercentComplete ($I/$progresstotal*100);$i++
+        Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).ResourceID)'" -pv pim | foreach{
+            Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where MemberType -eq "Direct" | foreach{
+                $role = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -id $azpra.RoleDefinitionId -ResourceId $azpra.ResourceId
+                Get-AzureADObjectByObjectId -ObjectId $azpra.SubjectId -pv member | select `
+                    @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
+                    @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
+                    @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
+                    @{Name="ResourceID";Expression={$azr.ResourceID}}, `
+                    @{Name="ResourceName";Expression={$azr.ResourceName}}, `
+                    @{Name="ResourceType";Expression={$azr.ResourceType}},
+                    @{Name="PIMResourceID";Expression={$pim.ID}}, `
+                    @{Name="PIMRoleStatus";Expression={$pim.status}}, `
+                    @{Name="PIMRoleRegisteredDateTime";Expression={$pim.RegisteredDateTime}}, `
+                    @{Name="PIMRegisteredRoot";Expression={$pim.RegisteredRoot}}, `
+                    @{Name="RoleAssignmentId";Expression={$azpra.externalid}}, `
+                    @{Name="RoleDefinitionName";Expression={$role.DisplayName}}, `
+                    @{Name="MemberObjectID";Expression={$azpra.SubjectId}}, `
+                    @{Name="MemberDisplayname";Expression={$member.DisplayName}}, `
+                    @{Name="MemberSigninName";Expression={$member.userprincipalname}}, `
+                    @{Name="MemberObjectType";Expression={$member.ObjectType}}, `
+                    @{Name="PIMMemberStartDateTime";Expression={$azpra.StartDateTime}}, `
+                    @{Name="PIMMemberAssignmentState";Expression={$azpra.AssignmentState}}, `
+                    @{Name="PIMMemberType";Expression={$azpra.MemberType}}
+                }}}      
+}
+cls
+$azureResources = Retrieve-AllAZResources
+write-host "Creating Report extracting all PIM Role Members"
+$time_to_complete = measure-command {Create-AZRBACResults | export-csv $export_report -NoTypeInformation}
+write-host "Complete in $($time_to_complete.Minutes) Min / $($time_to_complete.Seconds) sec"
+write-host "Complete Export found here $export_report" -ForegroundColor Yellow
+write-host "Creating Report for Resources pim not enabled" 
+$time_to_complete = measure-command {find-AZResourcesNotPIMEnabled | export-csv $notpim_report -NoTypeInformation}
+write-host "Complete in $($time_to_complete.Minutes) Min / $($time_to_complete.Seconds) sec"
+write-host "Complete Export found here $notpim_report" -ForegroundColor Yellow
+write-host "Creating Report for Resources pim not enabled" 
+$time_to_complete = measure-command {find-AZResourcesPIMEnabled | export-csv $pim_report -NoTypeInformation}
+write-host "Complete in $($time_to_complete.Minutes) Min / $($time_to_complete.Seconds) sec"
+write-host "Complete Export found here $pim_report" -ForegroundColor Yellow
+write-host "Finished"
