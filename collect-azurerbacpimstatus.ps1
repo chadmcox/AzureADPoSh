@@ -1,7 +1,7 @@
 #Requires -modules Az.Accounts,Az.Resources,azureadpreview
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.6.30
+.VERSION 2020.7.1
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -24,7 +24,9 @@ from the use or distribution of the Sample Code..
  retrieves all objects and  
 #> 
 param($reportpath="$env:userprofile\Documents")
-$report = "$reportpath\Azure_RBAC_PIM_Status_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+$export_report = "$reportpath\Azure_RBAC_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+$pim_report = "$reportpath\Azure_PIM_Status_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+$notpim_report = "$reportpath\Azure_Resources_PIM_Not_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
 function Retrieve-AllAZResources{
     Get-AzManagementGroup | select * | select @{Name="SubscriptionID";Expression={$_.TenantId}}, `
@@ -48,62 +50,36 @@ function Retrieve-AllAZResources{
             @{Name="ResourceType";Expression={$azr.ResourceType}}
     }
 }
-
 function Create-AZRBACResults{
     $azureResources = Retrieve-AllAZResources
-    $progresstotal = $azureResources.count
+    $progresstotal = $azureResources.count; write-host "Only $progresstotal to enumerate!! YAY!!!!"
     $i = 0
     foreach($azr in $azureResources){
         Write-Progress -Activity "Enumerating Azure Resources" -Status "Enumerating" -PercentComplete ($I/$progresstotal*100);$i++
-        $pim = $null;$pim = Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).ResourceID)'"
-        Get-AzRoleAssignment -scope $azr.ResourceID -pv azra | where {$azra.Scope -eq $azr.ResourceID} |  foreach{
-            $member = $null;if($PIM){$member = Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -Filter "externalId eq '$(($azra).RoleAssignmentId)'"}
-            $azra | select @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
-                @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
-                @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
-                @{Name="ResourceID";Expression={$azr.ResourceID}}, `
-                @{Name="ResourceName";Expression={$azr.ResourceName}}, `
-                @{Name="ResourceType";Expression={$azr.ResourceType}}, `
-                @{Name="PIMResourceID";Expression={$pim.ID}}, `
-                @{Name="PIMRoleStatus";Expression={$pim.status}}, `
-                @{Name="PIMRoleRegisteredDateTime";Expression={$pim.RegisteredDateTime}}, `
-                @{Name="PIMRegisteredRoot";Expression={$pim.RegisteredRoot}}, `
-                @{Name="RoleAssignmentId";Expression={$azra.RoleAssignmentId}}, `
-                @{Name="RoleDefinitionName";Expression={$azra.RoleDefinitionName}}, `
-                @{Name="MemberObjectID";Expression={$azra.objectid}}, `
-                @{Name="MemberDisplayname";Expression={$azra.DisplayName}}, `
-                @{Name="MemberSigninName";Expression={$azra.SignInName}}, `
-                @{Name="MemberObjectType";Expression={$azra.ObjectType}}, `
-                @{Name="PIMMemberStartDateTime";Expression={$member.StartDateTime}}, `
-                @{Name="PIMMemberAssignmentState";Expression={$member.AssignmentState}}, `
-                @{Name="PIMMemberType";Expression={$member.MemberType}}
-        }
-        if($pim){Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where {$_.AssignmentState -eq "Eligible" -and $_.membertype -eq "Direct"} | foreach {
-            $member = $null;$member = Get-AzureADObjectByObjectId -ObjectId $azpra.SubjectId
-            $role = $null; $role = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -id $azpra.RoleDefinitionId -ResourceId $azpra.ResourceId
-            $azpra | select `
-                @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
-                @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
-                @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
-                @{Name="ResourceID";Expression={$azr.ResourceID}}, `
-                @{Name="ResourceName";Expression={$azr.ResourceName}}, `
-                @{Name="ResourceType";Expression={$azr.ResourceType}}, `
-                @{Name="PIMResourceID";Expression={$pim.ID}}, `
-                @{Name="PIMRoleStatus";Expression={$pim.status}}, `
-                @{Name="PIMRoleRegisteredDateTime";Expression={$pim.RegisteredDateTime}}, `
-                @{Name="PIMRegisteredRoot";Expression={$pim.RegisteredRoot}}, `
-                @{Name="RoleAssignmentId";Expression={$role.ExternalId}}, `
-                @{Name="RoleDefinitionName";Expression={$role.DisplayName}}, `
-                @{Name="MemberObjectID";Expression={$azpra.SubjectId}}, `
-                @{Name="MemberDisplayname";Expression={$member.DisplayName}}, `
-                @{Name="MemberSigninName";Expression={$member.userprincipalname}}, `
-                @{Name="MemberObjectType";Expression={$member.ObjectType}}, `
-                @{Name="PIMMemberStartDateTime";Expression={$azpra.StartDateTime}}, `
-                @{Name="PIMMemberAssignmentState";Expression={$azpra.AssignmentState}}, `
-                @{Name="PIMMemberType";Expression={$azpra.MemberType}}
-            }}
+        Get-AzRoleAssignment -scope $azr.ResourceID -pv azra | where {$azra.Scope -eq $azr.ResourceID} | select `
+            @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
+            @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
+            @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
+            @{Name="ResourceID";Expression={$azr.ResourceID}}, `
+            @{Name="ResourceName";Expression={$azr.ResourceName}}, `
+            @{Name="ResourceType";Expression={$azr.ResourceType}}, `
+            @{Name="RoleAssignmentId";Expression={$azra.RoleAssignmentId}}, `
+            @{Name="RoleDefinitionName";Expression={$azra.RoleDefinitionName}}, `
+            @{Name="MemberObjectID";Expression={$azra.objectid}}, `
+            @{Name="MemberDisplayname";Expression={$azra.DisplayName}}, `
+            @{Name="MemberSigninName";Expression={$azra.SignInName}}, `
+            @{Name="MemberObjectType";Expression={$azra.ObjectType}}
     }
     Write-Progress -activity "Enumerating Azure Resources" -Status "Enumerating" -Completed
 }
+function find-AZResourcesNotPIMEnabled{
+    write-host "searching for non pim enabled resources"
+    $azureResources = import-csv $export_report | group resourceid
+    $progresstotal = $azureResources.count; write-host "Looking through $progresstotal resources to see if they are not enabled!! argh!!!!"
+    $azureResources | where {!(Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($_).name)'")} | select -ExpandProperty group
+}
 
-Create-AZRBACResults | export-csv $report -notypeinformation
+Create-AZRBACResults | export-csv $export_report -NoTypeInformation
+write-host "Complete Export found here $export_report"
+write-host "Creating Report for Resources pim not enabled" -ForegroundColor Yellow
+find-AZResourcesNotPIMEnabled | export-csv $notpim_report -NoTypeInformation
