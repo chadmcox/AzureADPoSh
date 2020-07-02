@@ -28,12 +28,6 @@ $export_report = "$reportpath\Azure_Resources_RBAC_All_Export_$(get-date -f yyyy
 $pim_report = "$reportpath\Azure_Resources_RBAC_PIM_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 $notpim_report = "$reportpath\Azure_Resources_RBAC_PIM_Not_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
-
-get-job | remove-job
-
-$MaxThreads = 10
-$SleepTimer = 1000
-
 function Retrieve-AllAZResources{
     Get-AzManagementGroup | select * | select @{Name="SubscriptionID";Expression={$_.TenantId}}, `
             @{Name="SubscriptionName";Expression={"Management Group"}}, `
