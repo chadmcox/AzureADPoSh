@@ -1,7 +1,7 @@
 #Requires -modules Az.Accounts,Az.Resources,azureadpreview
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.7.1
+.VERSION 2020.7.2
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -28,6 +28,12 @@ $export_report = "$reportpath\Azure_Resources_RBAC_All_Export_$(get-date -f yyyy
 $pim_report = "$reportpath\Azure_Resources_RBAC_PIM_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 $notpim_report = "$reportpath\Azure_Resources_RBAC_PIM_Not_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 
+
+get-job | remove-job
+
+$MaxThreads = 10
+$SleepTimer = 1000
+
 function Retrieve-AllAZResources{
     Get-AzManagementGroup | select * | select @{Name="SubscriptionID";Expression={$_.TenantId}}, `
             @{Name="SubscriptionName";Expression={"Management Group"}}, `
@@ -50,18 +56,30 @@ function Retrieve-AllAZResources{
             @{Name="ResourceType";Expression={$azr.ResourceType}}
     }
 }
+function thread-AzureRBACDump{
+    [cmdletbinding()]
+    param($subscription)
+    start-job -ScriptBlock {
+        $subscription = $args[0]
+        Set-AzContext -Subscription $subscription.SubscriptionID
+        Get-AzRoleAssignment -pv azra | select `
+            @{Name="ResourceID";Expression={$azra.Scope}}, `
+            @{Name="RoleAssignmentId";Expression={$azra.RoleAssignmentId}}, `
+            @{Name="RoleDefinitionName";Expression={$azra.RoleDefinitionName}}, `
+            @{Name="MemberObjectID";Expression={$azra.objectid}}, `
+            @{Name="MemberDisplayname";Expression={$azra.DisplayName}}, `
+            @{Name="MemberSigninName";Expression={$azra.SignInName}}, `
+            @{Name="MemberObjectType";Expression={$azra.ObjectType}} | export-csv "$env:userprofile\Documents\tmp_rbac_$($subscription.SubscriptionName).tmp" -NoTypeInformation
+        
+    } -Name $subscription.ResourceName -ArgumentList $subscription, $cred, $user
+}
 function Create-AZRBACResults{
     $progresstotal = $azureResources.count; write-host "First Exporting Resource RBAC Members only $progresstotal to enumerate!!"
     $i = 0
     foreach($azr in $azureResources){
         Write-Progress -Activity "Expanding Azure Resources: " -Status "Enumerating $I of $progresstotal" -PercentComplete ($I/$progresstotal*100);$i++
         Get-AzRoleAssignment -scope $azr.ResourceID -pv azra | where {$azra.Scope -eq $azr.ResourceID} | select `
-            @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
-            @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
-            @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
             @{Name="ResourceID";Expression={$azr.ResourceID}}, `
-            @{Name="ResourceName";Expression={$azr.ResourceName}}, `
-            @{Name="ResourceType";Expression={$azr.ResourceType}}, `
             @{Name="RoleAssignmentId";Expression={$azra.RoleAssignmentId}}, `
             @{Name="RoleDefinitionName";Expression={$azra.RoleDefinitionName}}, `
             @{Name="MemberObjectID";Expression={$azra.objectid}}, `
@@ -74,24 +92,20 @@ function Create-AZRBACResults{
 function find-AZResourcesNotPIMEnabled{
     write-host "searching for non pim enabled resources"
     $azureResourceslist = import-csv $export_report | group resourceid
-    $progresstotal = $azureResourceslist.count; write-host "Second Looking through $progresstotal resources to see if they are not enabled!! (no progress bar)"
+    $progresstotal = $azureResourceslist.count; write-host "Second Looking through $progresstotal resources to see if they are not enabled!!"
     $azureResourceslist | where {!(Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($_).name)'")} | select -ExpandProperty group
 }
 function find-AZResourcesPIMEnabled{
-    $progresstotal = $azureResources.count; write-host "Last Exporting PIM Managed RBAC Members, only $progresstotal to enumerate!!"
-    $i = 0
-    foreach($azr in $azureResources){
-        Write-Progress -Activity "Expanding Azure Resources Registered in PIM: " -Status "Enumerating $I of $progresstotal" -PercentComplete ($I/$progresstotal*100);$i++
+    $pimResources = import-csv $export_report | where MemberDisplayname -eq "MS-PIM" | select ResourceID,SubscriptionID,SubscriptionName
+    $progresstotal = $pimResources.count; write-host "Last Exporting PIM Managed RBAC Members, only $progresstotal to enumerate!!"
+    foreach($azr in $pimResources){
         Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).ResourceID)'" -pv pim | foreach{
             Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where MemberType -eq "Direct" | foreach{
                 $role = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -id $azpra.RoleDefinitionId -ResourceId $azpra.ResourceId
                 Get-AzureADObjectByObjectId -ObjectId $azpra.SubjectId -pv member | select `
                     @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
                     @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
-                    @{Name="SubscriptionState";Expression={$azr.SubscriptionState}}, `
                     @{Name="ResourceID";Expression={$azr.ResourceID}}, `
-                    @{Name="ResourceName";Expression={$azr.ResourceName}}, `
-                    @{Name="ResourceType";Expression={$azr.ResourceType}},
                     @{Name="PIMResourceID";Expression={$pim.ID}}, `
                     @{Name="PIMRoleStatus";Expression={$pim.status}}, `
                     @{Name="PIMRoleRegisteredDateTime";Expression={$pim.RegisteredDateTime}}, `
@@ -108,9 +122,39 @@ function find-AZResourcesPIMEnabled{
                 }}}      
 }
 cls
-$azureResources = Retrieve-AllAZResources
-write-host "Creating Report extracting all PIM Role Members"
-$time_to_complete = measure-command {Create-AZRBACResults | export-csv $export_report -NoTypeInformation}
+
+$resource_export_file = "$env:userprofile\Documents\resource.tmp"
+Get-ChildItem $resource_export_file | where {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | Remove-Item -Force
+if(!(test-path $resource_export_file)){
+    write-host "cache resources not found, recreating"
+    Retrieve-AllAZResources | export-csv $resource_export_file -NoTypeInformation
+}else{
+    write-host "cache resources found"
+}
+$azureResources = import-csv $resource_export_file | where ResourceType -eq "Subscriptions"
+$hash_lookup_table = import-csv $resource_export_file | group resourceid -AsHashTable -AsString
+
+
+write-host "Creating Report extracting all RBAC Role Members"
+
+$time_to_complete = measure-command {
+$progresstotal = $azureResources.count; write-host "First Exporting Resource RBAC Members only $progresstotal to enumerate!!"
+    foreach($sub in $azureResources){
+        While (@(Get-Job -state running).count -ge $MaxThreads){
+            Start-Sleep $SleepTimer
+        }
+        thread-AzureRBACDump -subscription $sub
+    }
+    get-job | wait-job
+
+    Get-ChildItem $reportpath -PipelineVariable file | select FullName | where FullName -like "*tmp_rbac_*" | foreach{
+        import-csv $file.FullName} | select * -Unique | select `
+            @{Name="SubscriptionID";Expression={$hash_lookup_table["$($_.ResourceID)"].SubscriptionID}}, `
+            @{Name="SubscriptionName";Expression={$hash_lookup_table["$($_.ResourceID)"].SubscriptionName}}, `
+            ResourceID,RoleAssignmentId,RoleDefinitionName, MemberObjectID,MemberDisplayname,MemberSigninName,MemberObjectType | `
+                export-csv $export_report -NoTypeInformation
+    Get-ChildItem $reportpath -PipelineVariable file | where FullName -like "*tmp_rbac_*" | remove-item -force   
+}
 write-host "Complete in $($time_to_complete.Minutes) Min / $($time_to_complete.Seconds) sec"
 write-host "Complete Export found here $export_report" -ForegroundColor Yellow
 write-host "Creating Report for Resources pim not enabled" 
