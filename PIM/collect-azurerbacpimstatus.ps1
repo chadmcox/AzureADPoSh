@@ -1,7 +1,7 @@
 #Requires -modules Az.Accounts,Az.Resources,azureadpreview
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.7.2.1
+.VERSION 2020.7.2.2
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -27,6 +27,12 @@ param($reportpath="$env:userprofile\Documents")
 $export_report = "$reportpath\Azure_Resources_RBAC_All_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 $pim_report = "$reportpath\Azure_Resources_RBAC_PIM_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
 $notpim_report = "$reportpath\Azure_Resources_RBAC_PIM_Not_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+
+
+get-job | remove-job
+
+$MaxThreads = 10
+$SleepTimer = 1000
 
 function Retrieve-AllAZResources{
     Get-AzManagementGroup | select * | select @{Name="SubscriptionID";Expression={$_.TenantId}}, `
@@ -112,7 +118,8 @@ $hash_lookup_table = import-csv $resource_export_file | group resourceid -AsHash
 write-host "Creating Report extracting all RBAC Role Members"
 
 $time_to_complete = measure-command {
-Create-AZRBACResults | select * -Unique | select `
+Create-AZRBACResults | export-csv "$reportpath\resource1.tmp" -NoTypeInformation
+import-csv "$reportpath\resource1.tmp" | select * -Unique | select `
     @{Name="SubscriptionID";Expression={$hash_lookup_table["$($_.ResourceID)"].SubscriptionID}}, `
     @{Name="SubscriptionName";Expression={$hash_lookup_table["$($_.ResourceID)"].SubscriptionName}}, `
     ResourceID,RoleAssignmentId,RoleDefinitionName, MemberObjectID,MemberDisplayname,MemberSigninName,MemberObjectType | `
