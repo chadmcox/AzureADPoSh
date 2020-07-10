@@ -1,7 +1,7 @@
-#Requires -modules Az.Accounts,Az.Resources,azureadpreview
+#Requires -modules azureadpreview,Az.Resources,Az.Accounts
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.7.2.2
+.VERSION 2020.7.10
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -21,119 +21,201 @@ and (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and
 against any claims or lawsuits, including attorneys` fees, that arise or result
 from the use or distribution of the Sample Code..
 .DESCRIPTION 
- retrieves all objects and  
-#> 
-param($reportpath="$env:userprofile\Documents")
-$export_report = "$reportpath\Azure_Resources_RBAC_All_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
-$pim_report = "$reportpath\Azure_Resources_RBAC_PIM_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
-$notpim_report = "$reportpath\Azure_Resources_RBAC_PIM_Not_Enabled_Export_$(get-date -f yyyy-MM-dd-HH-mm).csv"
+ Export all azure subscription, resources and management groups along with all the PIM and Role assignments.
 
+Need to add Get-AzUserAssignedIdentity
+https://docs.microsoft.com/en-us/powershell/module/az.managedserviceidentity/get-azuserassignedidentity?view=azps-4.3.0
+Get-AzKeyVault
+https://docs.microsoft.com/en-us/powershell/module/az.keyvault/get-azkeyvault?view=azps-4.3.0
+Get-AzApplicationGateway
+Also AKS is still a blackhole around ID's
 
-get-job | remove-job
+research
+https://github.com/JulianHayward/Azure-MG-Sub-Governance-Reporting/blob/master/pwsh/AzGovViz.ps1
+https://github.com/rodrigosantosms/azure-subscription-migration/blob/master/export-RBAC.ps1
+#>
 
-$MaxThreads = 10
-$SleepTimer = 1000
+param($scriptpath="$env:USERPROFILE\Documents\AzureAccessReport")
+if(!(test-path $scriptpath)){
+    new-item -Path $scriptpath -ItemType Directory
+}
 
-function Retrieve-AllAZResources{
-    Get-AzManagementGroup | select * | select @{Name="SubscriptionID";Expression={$_.TenantId}}, `
-            @{Name="SubscriptionName";Expression={"Management Group"}}, `
-            @{Name="SubscriptionState";Expression={"Enabled"}}, `
-            @{Name="ResourceID";Expression={$_.id}}, `
-            @{Name="ResourceName";Expression={$_.name}}, `
-            @{Name="ResourceType";Expression={$_.type}}
-    Get-AzSubscription -pv azs | where state -eq "Enabled" | Set-AzContext | foreach{
-        $azs | select @{Name="SubscriptionID";Expression={$azs.id}}, `
-            @{Name="SubscriptionName";Expression={$azs.name}}, `
-            @{Name="SubscriptionState";Expression={$azs.state}}, `
-            @{Name="ResourceID";Expression={"/subscriptions/$($azs.id)"}}, `
-            @{Name="ResourceName";Expression={$azs.Name}}, `
-            @{Name="ResourceType";Expression={"Subscriptions"}}
-        get-azresource -pv azr | select @{Name="SubscriptionID";Expression={$azs.id}}, `
-            @{Name="SubscriptionName";Expression={$azs.name}}, `
-            @{Name="SubscriptionState";Expression={$azs.state}}, `
-            @{Name="ResourceID";Expression={$azr.ResourceId}}, `
-            @{Name="ResourceName";Expression={$azr.Name}}, `
-            @{Name="ResourceType";Expression={$azr.ResourceType}}
+#when enumerating large environments this also enumerates all the visual studio subs.  
+#the goal of this is to make sure to return the script back to the default sub for later
+$default_sub = Get-AzContext
+
+cd $scriptpath
+
+if(!(Get-AzureADCurrentSessionInfo)){
+    write-host "Logon to Azure AD"
+    Connect-AzureAD
+}
+if(!(Get-AzSubscription)){
+    write-host "logon to Azure"
+    Connect-AzAccount
+}
+
+#region Supporting Functions
+function enumerate-aadgroup{
+    param($objectid)
+    get-azureadgroupmember -ObjectId $objectid -pv mem | foreach{
+        $_ | select @{Name="ObjectID";Expression={$mem.objectId}}, `
+            @{Name="ObjectType";Expression={"GroupMember - $($mem.ObjectType)"}}, `
+            @{Name="Displayname";Expression={$mem.DisplayName}}, `
+            @{Name="SigninName";Expression={$mem.userprincipalname}}
+        if($_.group){
+            enumerate-aadgroup -ObjectId $_.objectid
+        }
     }
 }
-
-function Create-AZRBACResults{
-    $progresstotal = $azureResources.count; write-host "First Exporting Resource RBAC Members only $progresstotal to enumerate!!"
-    $i = 0
-    foreach($azr in $azureResources){
-        $dont = Set-AzContext -Subscription $azr.SubscriptionID
-        Get-AzRoleAssignment -pv azra | select `
-            @{Name="ResourceID";Expression={$azra.Scope}}, `
-            @{Name="RoleAssignmentId";Expression={$azra.RoleAssignmentId}}, `
-            @{Name="RoleDefinitionName";Expression={$azra.RoleDefinitionName}}, `
-            @{Name="MemberObjectID";Expression={$azra.objectid}}, `
-            @{Name="MemberDisplayname";Expression={$azra.DisplayName}}, `
-            @{Name="MemberSigninName";Expression={$azra.SignInName}}, `
-            @{Name="MemberObjectType";Expression={$azra.ObjectType}}
+function check-file{
+    param($file)
+    if(!(Test-Path $file)){
+        write-host "$file not found"
+        return $true      
+    }elseif(!((Get-Item $file).length/1KB -gt 1/1kb)){
+        write-host "$file is empty"
+        return $true
+    }elseif((get-item -Path .\grpm.tmp).LastWriteTime -lt (get-date).AddDays(-3)){
+        write-host "$file is older than 3 days"
+        return $true
+    }else{
+        write-host "$file seems reusable"
+        return $false
     }
 }
-function find-AZResourcesNotPIMEnabled{
-    write-host "searching for non pim enabled resources"
-    $azureResourceslist = import-csv $export_report | group resourceid
-    $progresstotal = $azureResourceslist.count; write-host "Second Looking through $progresstotal resources to see if they are not enabled!!"
-    $azureResourceslist | where {!(Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($_).name)'")} | select -ExpandProperty group
+function expand-azuremg{
+    param($mg,$mglevel)
+    if($mg){
+        $hash_mg[$mg] | foreach{
+            $_ | select @{Name="ID";Expression={$amg.id}}, `
+            @{Name="name";Expression={$amg.displayname}}, `
+            @{Name="type";Expression={$amg.type}}, `
+            @{Name="ChildID";Expression={$_.Child}}, `
+            @{Name="ChildType";Expression={$_.childtype}}, `
+            @{Name="Childname";Expression={$_.childname}}, `
+            @{Name="Childlevel";Expression={$mglevel}}
+            expand-azuremg -mg $_.child -mglevel $($mglevel + 1)
+        }
+    }
 }
-function find-AZResourcesPIMEnabled{
-    $pimResources = import-csv $export_report | where MemberDisplayname -eq "MS-PIM" | select ResourceID,SubscriptionID,SubscriptionName
-    $progresstotal = $pimResources.count; write-host "Last Exporting PIM Managed RBAC Members, only $progresstotal to enumerate!!"
-    foreach($azr in $pimResources){
-        Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).ResourceID)'" -pv pim | foreach{
+#endregion
+#region Management Groups Exports
+$mg_File = ".\mg.tmp"
+if(check-file -file $mg_file){
+    write-host "Exporting Azure Management Group Relationships"
+    $hash_mg = Get-AzManagementGroup | foreach{
+        $_ | where Displayname -eq "Tenant Root Group" | select @{Name="Parent";Expression={"\"}}, @{Name="Child";Expression={$_.id}}, `
+        @{Name="childname";Expression={$_.displayname}},@{Name="ChildType";Expression={$_.type}}
+        Get-AzManagementGroup -GroupName $_.name -Expand -pv parent | select -ExpandProperty Children | select @{Name="Parent";Expression={$parent.ID}}, @{Name="Child";Expression={$_.id}}, `
+        @{Name="childname";Expression={$_.displayname}},@{Name="ChildType";Expression={$_.type}}
+    } | group parent -AsHashTable -AsString
+
+    Get-AzManagementGroup -pv amg | foreach{
+        $MGLevel = 1
+        expand-azuremg -mg $amg.id -mglevel 1
+    } | export-csv $mg_File -NoTypeInformation
+}
+
+$res_file = ".\res.tmp"
+if(check-file -file $res_file){
+    write-host "Exporting Azure Management Groups"    
+    get-azManagementGroup | select `
+        @{Name="ParentID";Expression={$_.id}}, `
+        @{Name="ParentName";Expression={$_.displayname}}, `
+        @{Name="ParentType";Expression={$_.type}}, `
+        @{Name="ResourceID";Expression={$_.ID}}, `
+        @{Name="ResourceName";Expression={$_.displayname}}, `
+        @{Name="ResourceType";Expression={$_.type}}, `
+        ResourceGroupName | export-csv $res_file -NoTypeInformation
+
+    Write-host "Exporting All Azure Subscriptions and Resources"
+    get-azsubscription -pv azs | Set-AzContext | foreach{
+        $azs | select @{Name="ParentID";Expression={"/subscriptions/$($azs.ID)"}}, `
+            @{Name="ParentName";Expression={"$($azs.name)"}}, `
+            @{Name="ParentType";Expression={"/subscriptions"}}, `
+            @{Name="ResourceID";Expression={"/subscriptions/$($azs.ID)"}}, `
+            @{Name="ResourceName";Expression={"$($azs.name)"}}, `
+            @{Name="ResourceType";Expression={"/subscriptions"}}, `
+            @{Name="ResourceGroupName";Expression={}}
+        get-azResource -pv azr | select @{Name="ParentID";Expression={"/subscriptions/$($azs.ID)"}}, `
+            @{Name="ParentName";Expression={"$($azs.name)"}}, `
+            @{Name="ParentType";Expression={"/subscriptions"}}, `
+            @{Name="ResourceID";Expression={$azr.resourceid}}, `
+            @{Name="ResourceName";Expression={$azr.name}}, `
+            @{Name="ResourceType";Expression={$azr.ResourceType}}, `
+            @{Name="ResourceGroupName";Expression={$azr.ResourceGroupName}}
+    } | export-csv $res_file -NoTypeInformation -Append
+}
+#endregion
+#region Role Export
+$rbac_file = ".\rbac.tmp"
+if(check-file -file $rbac_file){
+    write-host "Exporting all Azure Role Assignment from Subscriptions"
+    get-azsubscription -pv azs | Set-AzContext | foreach{
+        get-azRoleAssignment -pv azr | select scope, RoleDefinitionName,RoleDefinitionId,ObjectId,ObjectType, `
+            DisplayName,SignInName,AssignmentState, @{Name="AssignmentType";Expression={"azRoleAssignment"}}
+    } | select * -unique | export-csv $rbac_file -NoTypeInformation
+}
+
+$pim_File = ".\pim.tmp"
+if(check-file -file $pim_File){
+    write-host "Exporting all Privileged Identity Management Enabled Azure Roles and Members"
+    import-csv $rbac_file  | where Displayname -eq "MS-PIM" | group scope -pv azr  | foreach{
+        Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).name)'" -pv pim | foreach{
             Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where MemberType -eq "Direct" | foreach{
                 $role = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -id $azpra.RoleDefinitionId -ResourceId $azpra.ResourceId
-                Get-AzureADObjectByObjectId -ObjectId $azpra.SubjectId -pv member | select `
-                    @{Name="SubscriptionID";Expression={$azr.SubscriptionID}}, `
-                    @{Name="SubscriptionName";Expression={$azr.SubscriptionName}}, `
-                    @{Name="ResourceID";Expression={$azr.ResourceID}}, `
-                    @{Name="PIMResourceID";Expression={$pim.ID}}, `
-                    @{Name="PIMRoleStatus";Expression={$pim.status}}, `
-                    @{Name="PIMRoleRegisteredDateTime";Expression={$pim.RegisteredDateTime}}, `
-                    @{Name="PIMRegisteredRoot";Expression={$pim.RegisteredRoot}}, `
-                    @{Name="RoleAssignmentId";Expression={$azpra.externalid}}, `
-                    @{Name="RoleDefinitionName";Expression={$role.DisplayName}}, `
-                    @{Name="MemberObjectID";Expression={$azpra.SubjectId}}, `
-                    @{Name="MemberDisplayname";Expression={$member.DisplayName}}, `
-                    @{Name="MemberSigninName";Expression={$member.userprincipalname}}, `
-                    @{Name="MemberObjectType";Expression={$member.ObjectType}}, `
-                    @{Name="PIMMemberStartDateTime";Expression={$azpra.StartDateTime}}, `
-                    @{Name="PIMMemberAssignmentState";Expression={$azpra.AssignmentState}}, `
-                    @{Name="PIMMemberType";Expression={$azpra.MemberType}}
-                }}}      
+                    Get-AzureADObjectByObjectId -ObjectId $azpra.SubjectId -pv member | select `
+                         @{Name="Scope";Expression={$(($azr).name)}}, `
+                         @{Name="RoleDefinitionName";Expression={$role.DisplayName}}, `
+                         @{Name="RoleDefinitionId";Expression={$azpra.RoleDefinitionId}}, `
+                         @{Name="ObjectID";Expression={$azpra.SubjectId}}, `
+                         @{Name="ObjectType";Expression={$member.ObjectType}}, `
+                         @{Name="Displayname";Expression={$member.DisplayName}}, `
+                         @{Name="SigninName";Expression={$member.userprincipalname}}, `
+                         @{Name="AssignmentState";Expression={$azpra.AssignmentState}}, `
+                         @{Name="AssignmentType";Expression={"PrivilegedRoleAssignment"}}
+            }
+        }
+    } | export-csv $pim_File -notypeinformation
 }
-cls
-$resource_export_file = "$env:userprofile\Documents\resource.tmp"
-Get-ChildItem $resource_export_file | where {$_.LastWriteTime -lt (Get-Date).AddDays(-7)} | Remove-Item -Force
-if(!(test-path $resource_export_file)){
-    write-host "cache resources not found, recreating"
-    Retrieve-AllAZResources | export-csv $resource_export_file -NoTypeInformation
-}else{
-    write-host "cache resources found"
-}
-$azureResources = import-csv $resource_export_file | where ResourceType -eq "Subscriptions"
-$hash_lookup_table = import-csv $resource_export_file | group resourceid -AsHashTable -AsString
-write-host "Creating Report extracting all RBAC Role Members"
+#endregion
+#region Formatting and Creating Final Report
 
-$time_to_complete = measure-command {
-Create-AZRBACResults | export-csv "$reportpath\resource1.tmp" -NoTypeInformation
-import-csv "$reportpath\resource1.tmp" | select * -Unique | select `
-    @{Name="SubscriptionID";Expression={$hash_lookup_table["$($_.ResourceID)"].SubscriptionID}}, `
-    @{Name="SubscriptionName";Expression={$hash_lookup_table["$($_.ResourceID)"].SubscriptionName}}, `
-    ResourceID,RoleAssignmentId,RoleDefinitionName, MemberObjectID,MemberDisplayname,MemberSigninName,MemberObjectType | `
-        export-csv $export_report -NoTypeInformation
-     
+Set-AzContext -Subscription $default_sub.Subscription
+
+write-host "Creating Azure Resource Lookup Hash Table"
+$hash_res = import-csv $res_file | group ParentID -AsHashTable -AsString
+
+write-host "Creating Hash Lookup Table for PIM Enabled Resources"
+$hash_pimenabled = import-csv $rbac_file -pv azr | where Displayname -eq "MS-PIM" | group scope -AsHashTable -AsString
+
+$resm_File = ".\AzureResourceRelationShips.csv"
+write-host "Mapping Management Groups to subscriptions and resources"
+import-csv $mg_File -pv mg | foreach{
+    $hash_res[$mg.childid] | select @{Name="ScopeID";Expression={$mg.ID}},@{Name="ScopeName";Expression={$mg.name}}, `
+        @{Name="ScopeType";Expression={$mg.Type}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
+        @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}}
+} | export-csv $resm_File
+import-csv $res_file -pv mg | select @{Name="ScopeID";Expression={$_.ResourceID}},@{Name="ScopeName";Expression={$_.ResourceName}}, `
+    @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
+    @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}} | export-csv $resm_File -Append
+
+
+write-host "Flushing Azure Resource Lookup Hash Table"
+$hash_res = @{}
+
+$grpm_File = ".\grpm.tmp"
+if(check-file -file $grpm_File){
+    write-host "Expanding Azure AD Groups being used in Azure Roles"
+    @(import-csv $rbac_file; import-csv $pim_File) | where ObjectType -eq "group" -PipelineVariable grp | foreach{
+        enumerate-aadgroup -objectid $_.objectid | select @{Name="Scope";Expression={$grp.scope}}, `
+            @{Name="RoleDefinitionName";Expression={$grp.RoleDefinitionName}}, `
+            @{Name="RoleDefinitionId";Expression={$grp.RoleDefinitionId}}, `
+            ObjectId,ObjectType,DisplayName,SignInName, `
+            @{Name="AssignmentState";Expression={$grp.AssignmentState}}, `
+            @{Name="AssignmentType";Expression={$grp.AssignmentType}} 
+    } | sort scope,objectid | select * -Unique | export-csv $grpm_File -NoTypeInformation
 }
-write-host "Complete in $($time_to_complete.Minutes) Min / $($time_to_complete.Seconds) sec"
-write-host "Complete Export found here $export_report" -ForegroundColor Yellow
-write-host "Creating Report for Resources pim not enabled" 
-$time_to_complete = measure-command {find-AZResourcesNotPIMEnabled | export-csv $notpim_report -NoTypeInformation}
-write-host "Complete in $($time_to_complete.Minutes) Min / $($time_to_complete.Seconds) sec"
-write-host "Complete Export found here $notpim_report" -ForegroundColor Yellow
-write-host "Creating Report for Resources pim not enabled" 
-$time_to_complete = measure-command {find-AZResourcesPIMEnabled | export-csv $pim_report -NoTypeInformation}
-write-host "Complete in $($time_to_complete.Minutes) Min / $($time_to_complete.Seconds) sec"
-write-host "Complete Export found here $pim_report" -ForegroundColor Yellow
-write-host "Finished"
+$role_File = ".\RoleAssignment.csv"
+@(import-csv $rbac_file; import-csv $pim_File; import-csv $grpm_File) | export-csv $role_File -NoTypeInformation
