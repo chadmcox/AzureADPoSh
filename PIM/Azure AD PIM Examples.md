@@ -4,8 +4,8 @@
 $ten = (Get-AzureADTenantDetail).objectid
 Get-AzureADMSPrivilegedRoleDefinition -ProviderId "aadRoles" -ResourceId $ten
 ```
-* in this example I am going to use Application Administrator, I find this in the list
-'''
+* In this example I am going to use Application Administrator, I find this in the list
+```
 Id                      : 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3
 ResourceId              : d9756784-046e-4a6a-a7a4-d053357dd76f
 ExternalId              : 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3
