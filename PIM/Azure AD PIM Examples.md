@@ -45,8 +45,8 @@ a240a3d2-50a9-49ca-8498-bb8f633ae46f
 * The idea is to add this user as an elgible member in that role, the users objectid will be the subjectid, use the RoleDefinitionId results from previous into this one
 ```
 #create a generic schedule
-$schedule = New-Object Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedSchedule
-$schedule.Type = "Once"
+PS C:\$schedule = New-Object Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedSchedule
+PS C:\$schedule.Type = "Once"
 
 #create a open request Type is adminadd
 PS C:\Open-AzureADMSPrivilegedRoleAssignmentRequest -ProviderId "aadRoles" -ResourceId $ten `
@@ -88,4 +88,26 @@ AssignmentState                : Eligible
 MemberType                     : Direct
 ```
 # Remove user as elgible role in PIM
+* This is basically the same thing as add, but change the type to AdminRemove
 
+```
+PS C:\$schedule = New-Object Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedSchedule
+PS C:\$schedule.Type = "Once"
+PS C:\Open-AzureADMSPrivilegedRoleAssignmentRequest -ProviderId "aadRoles" -ResourceId $ten `
+    -RoleDefinitionId 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3 -SubjectId a240a3d2-50a9-49ca-8498-bb8f633ae46f `
+    -Type "AdminRemove" -assignmentState "Eligible" -Schedule $schedule
+    
+ResourceId       : d9756784-046e-4a6a-a7a4-d053357dd76f
+RoleDefinitionId : 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3
+SubjectId        : a240a3d2-50a9-49ca-8498-bb8f633ae46f
+Type             : AdminRemove
+AssignmentState  : Eligible
+Schedule         : class AzureADMSPrivilegedSchedule {
+                     StartDateTime: 1/1/0001 12:00:00 AM
+                     EndDateTime: 
+                     Type: Once
+                     Duration: PT0S
+                   }
+                   
+Reason           : 
+```
