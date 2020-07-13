@@ -1,8 +1,8 @@
 ## Add User as elgible role in PIM
 * List Azure AD PIM Roles
 ```
-$ten = (Get-AzureADTenantDetail).objectid
-Get-AzureADMSPrivilegedRoleDefinition -ProviderId "aadRoles" -ResourceId $ten
+PS C:\$ten = (Get-AzureADTenantDetail).objectid
+PS C:\Get-AzureADMSPrivilegedRoleDefinition -ProviderId "aadRoles" -ResourceId $ten
 
 # In this example I am going to use Application Administrator, I find this in the list
 
@@ -17,7 +17,7 @@ ActiveAssignmentCount   :
 
 * List current members of Role in PIM, will use the externalid from results previous cmdlet and use in the filter with roledefinitionid to this cmdlet.
 ```
-Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadRoles" -ResourceId $ten -filter "RoleDefinitionId eq '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'"
+PS C:\Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadRoles" -ResourceId $ten -filter "RoleDefinitionId eq '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'"
 
 # returns several results smililar to this:
 
@@ -34,7 +34,7 @@ MemberType                     : Direct
 ```
 * Get the upn of the user you want to add to the role
 ```
-get-azureaduser -ObjectId Anaya.Bradford@contoso.com | select objectid
+PS C:\get-azureaduser -ObjectId Anaya.Bradford@contoso.com | select objectid
 
 ObjectId                            
 --------                            
@@ -48,7 +48,7 @@ $schedule = New-Object Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedSchedule
 $schedule.Type = "Once"
 
 #create a open request Type is adminadd
-Open-AzureADMSPrivilegedRoleAssignmentRequest -ProviderId "aadRoles" -ResourceId $ten `
+PS C:\Open-AzureADMSPrivilegedRoleAssignmentRequest -ProviderId "aadRoles" -ResourceId $ten `
     -RoleDefinitionId 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3 -SubjectId a240a3d2-50a9-49ca-8498-bb8f633ae46f `
     -Type "AdminAdd" -assignmentState "Eligible" -Schedule $schedule
     
@@ -71,7 +71,7 @@ Reason           :
 
 * Validate run adding to the previous cmdlet the subjectid into the filter
 ```
-Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadRoles" -ResourceId $ten `
+PS C:\Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadRoles" -ResourceId $ten `
     -filter "RoleDefinitionId eq '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3' and subjectid eq 'a240a3d2-50a9-49ca-8498-bb8f633ae46f'"
     
     
