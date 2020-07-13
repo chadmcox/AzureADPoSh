@@ -41,16 +41,50 @@ ObjectId
 a240a3d2-50a9-49ca-8498-bb8f633ae46f
 
 ```
-* The idea is to add this user as an elgible member in that role, the users objectid will be the subjectid
+* The idea is to add this user as an elgible member in that role, the users objectid will be the subjectid, use the RoleDefinitionId results from previous into this one
 ```
 #create a generic schedule
 $schedule = New-Object Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedSchedule
 $schedule.Type = "Once"
 
-#create a open request
+#create a open request Type is adminadd
+Open-AzureADMSPrivilegedRoleAssignmentRequest -ProviderId "aadRoles" -ResourceId $ten `
+    -RoleDefinitionId 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3 -SubjectId a240a3d2-50a9-49ca-8498-bb8f633ae46f `
+    -Type "AdminAdd" -assignmentState "Eligible" -Schedule $schedule
+    
 
-
+ResourceId       : d9756784-046e-4a6a-a7a4-d053357dd76f
+RoleDefinitionId : 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3
+SubjectId        : a240a3d2-50a9-49ca-8498-bb8f633ae46f
+Type             : AdminAdd
+AssignmentState  : Eligible
+Schedule         : class AzureADMSPrivilegedSchedule {
+                     StartDateTime: 7/13/2020 9:36:44 PM
+                     EndDateTime: 
+                     Type: Once
+                     Duration: PT0S
+                   }
+                   
+Reason           :
 ```
 * [List of types](https://docs.microsoft.com/en-us/graph/api/governanceroleassignmentrequest-post?view=graph-rest-beta&tabs=http)
+
+* Validate run adding to the previous cmdlet the subjectid into the filter
+```
+Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadRoles" -ResourceId $ten `
+    -filter "RoleDefinitionId eq '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3' and subjectid eq 'a240a3d2-50a9-49ca-8498-bb8f633ae46f'"
+    
+    
+Id                             : kl2Jm9Msx0SdAqasLV6lw9KjQKKpUMpJhJi7j2M65G8-1-e
+ResourceId                     : d9756784-046e-4a6a-a7a4-d053357dd76f
+RoleDefinitionId               : 9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3
+SubjectId                      : a240a3d2-50a9-49ca-8498-bb8f633ae46f
+LinkedEligibleRoleAssignmentId : 
+ExternalId                     : kl2Jm9Msx0SdAqasLV6lw9KjQKKpUMpJhJi7j2M65G8-1-e
+StartDateTime                  : 7/13/2020 9:36:44 PM
+EndDateTime                    : 
+AssignmentState                : Eligible
+MemberType                     : Direct
+```
 # Remove user as elgible role in PIM
 
