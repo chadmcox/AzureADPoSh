@@ -17,7 +17,8 @@ ActiveAssignmentCount   :
 
 * List current members of Role in PIM, will use the externalid from results previous cmdlet and use in the filter with roledefinitionid to this cmdlet.
 ```
-PS C:\Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadRoles" -ResourceId $ten -filter "RoleDefinitionId eq '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'"
+PS C:\Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadRoles" -ResourceId $ten `
+    -filter "RoleDefinitionId eq '9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3'"
 
 # returns several results smililar to this:
 
