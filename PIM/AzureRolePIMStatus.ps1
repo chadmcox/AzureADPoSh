@@ -1,7 +1,7 @@
 #Requires -modules azureadpreview,Az.Resources,Az.Accounts
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.7.10
+.VERSION 2020.7.14
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
@@ -184,6 +184,10 @@ if(check-file -file $pim_File){
 
 Set-AzContext -Subscription $default_sub.Subscription
 
+$hash_inherited = import-csv .\rbac.tmp | select scope | group scope -AsHashTable -AsString
+
+$hash
+
 write-host "Creating Azure Resource Lookup Hash Table"
 $hash_res = import-csv $res_file | group ParentID -AsHashTable -AsString
 
@@ -195,11 +199,22 @@ write-host "Mapping Management Groups to subscriptions and resources"
 import-csv $mg_File -pv mg | foreach{
     $hash_res[$mg.childid] | select @{Name="ScopeID";Expression={$mg.ID}},@{Name="ScopeName";Expression={$mg.name}}, `
         @{Name="ScopeType";Expression={$mg.Type}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
-        @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}}
-} | export-csv $resm_File
+        @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($mg.ID)}}, `
+        @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){$_.ParentName}}}
+} | export-csv $resm_File -notypeinformation
+Write "Adding Resource Refrence"
 import-csv $res_file -pv mg | select @{Name="ScopeID";Expression={$_.ResourceID}},@{Name="ScopeName";Expression={$_.ResourceName}}, `
     @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
-    @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}} | export-csv $resm_File -Append
+    @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}}, `
+        @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){$_.ParentName}}} | export-csv $resm_File -Append
+write-host "Adding Management group references"
+import-csv $res_file -pv mg | select @{Name="ScopeID";Expression={$_.ParentID}},@{Name="ScopeName";Expression={$_.ParentName}}, `
+    @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
+    @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.parentid)}}, `
+        @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){$_.ParentName}}} | export-csv $resm_File -Append
 
 
 write-host "Flushing Azure Resource Lookup Hash Table"
