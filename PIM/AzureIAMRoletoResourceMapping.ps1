@@ -1,7 +1,7 @@
 #Requires -modules azureadpreview,Az.Resources,Az.Accounts
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.7.14
+.VERSION 2020.7.15
 .GUID 476739f9-d907-4d5a-856e-71f9279955de
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/
