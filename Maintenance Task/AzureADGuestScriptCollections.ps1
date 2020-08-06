@@ -27,3 +27,18 @@ Get-AzureADUser -Filter "userType eq 'Guest'" -all $true -PipelineVariable guest
 Get-AzureADUser -Filter "userType eq 'Guest'" -all $true -PipelineVariable guest | where {$_.userstate -ne 'PendingAcceptance'} | `
     where {!(Get-AzureADAuditSignInLogs -Filter "userid eq '$($guest.objectid)'" -top 1)} | `
         Set-AzureADUser -AccountEnabled $false
+
+#list Guest accounts from known popular personal email
+Get-AzureADUser -Filter "userType eq 'Guest'" -all $true -PipelineVariable guest | `
+    where {$_.UserPrincipalName -match "gmail.com|hotmail.com|msn.com|ymail.com|aol.com|msn.com|outlook.com|live.com|googlemail.com|yahoo.com"} | `
+        select objectid, displayname, userprincipalname,Mail,usertype, accountenabled,CreationType, `
+            UserState, UserStateChangedOn | export-csv .\azureadGuestKnownPersonalEmail.csv
+ 
+ #Disable Guest Objects from common personal emails with no recent logons
+ Get-AzureADUser -Filter "userType eq 'Guest'" -all $true -PipelineVariable guest | `
+    where {$_.UserPrincipalName -match "gmail.com|hotmail.com|msn.com|ymail.com|aol.com|msn.com|outlook.com|live.com|googlemail.com|yahoo.com"} | `
+    where {!(Get-AzureADAuditSignInLogs -Filter "userid eq '$($guest.objectid)'" -top 1)} | `
+        Set-AzureADUser -AccountEnabled $false
+ 
+            
+            
