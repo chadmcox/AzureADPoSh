@@ -18,9 +18,9 @@ Get-AzureADUser -Filter "userType eq 'Guest'" -all $true -PipelineVariable guest
     where {($_.userstate -eq 'PendingAcceptance') -and ((get-date $($_.UserStateChangedOn)) -lt $((get-date).adddays(-7)))} | `
         Set-AzureADUser -AccountEnabled $false
  
- #Delete guest that are pending acceptance and disabled
+ #Delete guest that are pending acceptance and disabled for longer than 30 days
  Get-AzureADUser -Filter "userType eq 'Guest'" -all $true -PipelineVariable guest | `
-    where {($_.userstate -eq 'PendingAcceptance') -and ((get-date $($_.UserStateChangedOn)) -lt $((get-date).adddays(-7))) -and $_.accountenabled -eq $false} | `
+    where {($_.userstate -eq 'PendingAcceptance') -and ((get-date $($_.UserStateChangedOn)) -lt $((get-date).adddays(-30))) -and $_.accountenabled -eq $false} | `
         Remove-AzureADUser
 
 #Disable Users not showing any logons over the last 30 days
