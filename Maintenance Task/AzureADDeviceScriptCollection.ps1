@@ -19,20 +19,37 @@ get-azureaddevice -Filter "DeviceTrustType eq 'AzureAD'" -all $true | select `
         DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_aadjoined.csv -NoTypeInformation
 
 #list all stale devices
+$dt = [datetime]'2020/01/01'
+get-azureaddevice -all $true | where {$_.ApproximateLastLogonTimeStamp -le $dt} | select `
+    objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_stale.csv -NoTypeInformation
+        
+#disable stale accounts
+$dt = [datetime]'2020/01/01'
+get-azureaddevice -all $true | where {$_.ApproximateLastLogonTimeStamp -le $dt} | set-azureaddevice -accountenabled $false
 
 #list disabled devices
-
+get-azureaddevice -all $true | where {$_.AccountEnabled -eq $false} | select `
+    objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_disabled.csv -NoTypeInformation
+        
+#Delete stale disabled computers
+$dt = [datetime]'2020/01/01'
+get-azureaddevice -all $true | where {$_.ApproximateLastLogonTimeStamp -le $dt -and $_.AccountEnabled -eq $false} | Remove-AzureADDevice
 
 #using MSOL module - list devices not really hybrid device joined 
 Get-MsolDevice -All -IncludeSystemManagedDevices | `
   where {($_.DeviceTrustType -eq 'Domain Joined') -and (-not([string]($_.AlternativeSecurityIds)).StartsWith("X509:"))} | select `
-    objectid, deviceid, displayname, enabled, DeviceOSVersion, DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ApproximateLastLogonTimeStamp | export-csv .\aad_device_aadjoined.csv -NoTypeInformation
+    objectid, deviceid, displayname, enabled, DeviceOSVersion, DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ApproximateLastLogonTimeStamp | `
+        export-csv .\aad_device_aadjoined.csv -NoTypeInformation
     
 #using MSOL module - Get Stale Devices
-Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | export-csv .\aad_device_stale.csv -NoTypeInformation
+Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | select `
+    objectid, deviceid, displayname, enabled, DeviceOSVersion, DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ApproximateLastLogonTimeStamp | `
+        export-csv .\aad_device_stale.csv -NoTypeInformation
 
 #using msol module - Disable Stale Devices
 Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | disable-msoldevice -force
 
 #Using MSOL Module - Remove Disabled stale objects Objects
-Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | where enabled -ne $true | 
+Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | where enabled -ne $true | Remove-MsolDevice -force
