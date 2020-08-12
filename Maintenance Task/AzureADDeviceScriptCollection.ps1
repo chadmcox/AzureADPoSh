@@ -1,1 +1,38 @@
+#this will list all Windows devices
+get-azureaddevice -Filter "DeviceOSType eq 'Windows'" -all $true | select `
+    objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_windows.csv -NoTypeInformation
 
+#this will list all worplace joined devices. Ideal not to have personal devices unless their is a byod stratagy
+get-azureaddevice -Filter "DeviceTrustType eq 'Workplace'" -all $true | select `
+    objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_workplacejoined.csv -NoTypeInformation
+
+#this will list all hybrid joined devices 
+get-azureaddevice -Filter "DeviceTrustType eq 'ServerAD'" -all $true | select `
+    objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_hybridjoined.csv -NoTypeInformation
+
+#this will list all direc azure ad joined devices
+get-azureaddevice -Filter "DeviceTrustType eq 'AzureAD'" -all $true | select `
+    objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_aadjoined.csv -NoTypeInformation
+
+#list all stale devices
+
+#list disabled devices
+
+
+#using MSOL module - list devices not really hybrid device joined 
+Get-MsolDevice -All -IncludeSystemManagedDevices | `
+  where {($_.DeviceTrustType -eq 'Domain Joined') -and (-not([string]($_.AlternativeSecurityIds)).StartsWith("X509:"))} | select `
+    objectid, deviceid, displayname, enabled, DeviceOSVersion, DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ApproximateLastLogonTimeStamp | export-csv .\aad_device_aadjoined.csv -NoTypeInformation
+    
+#using MSOL module - Get Stale Devices
+Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | export-csv .\aad_device_stale.csv -NoTypeInformation
+
+#using msol module - Disable Stale Devices
+Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | disable-msoldevice -force
+
+#Using MSOL Module - Remove Disabled stale objects Objects
+Get-MsolDevice -All -LogonTimeBefore 'January 1, 2020 12:00:00 AM' | where enabled -ne $true | 
