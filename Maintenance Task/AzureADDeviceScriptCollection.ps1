@@ -1,4 +1,4 @@
-ta#this will list all Windows devices
+#this will list all Windows devices
 get-azureaddevice -Filter "DeviceOSType eq 'Windows'" -all $true | select `
     objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
         DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_windows.csv -NoTypeInformation
@@ -36,6 +36,12 @@ get-azureaddevice -all $true | where {$_.AccountEnabled -eq $false} | select `
 #Delete stale disabled computers
 $dt = [datetime]'2020/01/01'
 get-azureaddevice -all $true | where {$_.ApproximateLastLogonTimeStamp -le $dt -and $_.AccountEnabled -eq $false} | Remove-AzureADDevice
+
+#this will list devices that are still being used but are disabled
+Get-AzureADAuditSignInLogs -filter "appDisplayName eq 'Microsoft Office' and status/errorCode eq 135011" -all $true | select `
+    UserPrincipalName,AppDisplayName, @{Name="DeviceName";Expression={$_.DeviceDetail.DisplayName}}, `
+    @{Name="ErrorCode";Expression={$_.Status.errorcode}}, @{Name="FailureReason";Expression={$_.Status.FailureReason}} -Unique | `
+        export-csv .\aad_device_still_used_but_disabled.csv
 
 #using MSOL module - list devices hybrid device joined in pending state 
 #https://docs.microsoft.com/en-us/azure/active-directory/devices/hybrid-azuread-join-manual#using-powershell
