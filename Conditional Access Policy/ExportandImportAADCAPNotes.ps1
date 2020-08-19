@@ -1,4 +1,5 @@
 <#
+I know this works with azureadpreview 2.0.2.105
 when trying to convert the entire policy to a json I had problems with the null values and multi string value properties converting correctly.
 I was able to move past this by splitting out conditions, grantcontrols, and sessioncontrols into their own json.  they convert correctly that way.
 #>
