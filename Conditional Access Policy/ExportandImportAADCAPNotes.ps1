@@ -4,7 +4,7 @@ when trying to convert the entire policy to a json I had problems with the null 
 I was able to move past this by splitting out conditions, grantcontrols, and sessioncontrols into their own json.  they convert correctly that way.
 #>
 
-Export all conditional access policies into a files, each policy will create 4 files.
+#Export all conditional access policies into a files, each policy will create 4 files.
 Get-AzureADMSConditionalAccessPolicy -pv policy | foreach{
     $policy.Conditions | ConvertTo-Json -compress | out-file ".\$($policy.displayname)_conditions.json"
     $policy.GrantControls | ConvertTo-Json -compress | out-file ".\$($policy.displayname)_GrantControls.json"
@@ -12,7 +12,7 @@ Get-AzureADMSConditionalAccessPolicy -pv policy | foreach{
     $policy | ConvertTo-Json -compress -Depth 1 | out-file ".\$($policy.displayname)_base.json"
 }
 
-This will restore all the conditional access policies.
+#This will restore all the conditional access policies.
 get-childitem .\*_base.json | foreach{
     $cap = Get-Content $_.FullName | -Raw | ConvertFrom-Json
     New-AzureADMSApplicationKey -displayname $cap.displayname
