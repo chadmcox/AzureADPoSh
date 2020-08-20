@@ -7,6 +7,10 @@ get-azureaddevice -Filter "DeviceOSType eq 'Windows'" -all $true | select `
 get-azureaddevice -Filter "DeviceTrustType eq 'Workplace'" -all $true | select `
     objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
         DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_workplacejoined.csv -NoTypeInformation
+        
+get-azureaddevice -Filter "DeviceOSType eq 'Windows' and DeviceTrustType eq 'Workplace'" -all $true | select `
+    objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_windows_workplacejoined.csv -NoTypeInformation
 
 #this will list all hybrid joined devices 
 get-azureaddevice -Filter "DeviceTrustType eq 'ServerAD'" -all $true | select `
