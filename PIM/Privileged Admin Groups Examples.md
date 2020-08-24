@@ -1,6 +1,6 @@
 ## Here are some examples on how to use PowerShell and Privileged Admin Groups
 
-* Retrieve the objectid of the group you want to work with:
+* Retrieve the objectid/id of the group you want to work with:
 ```
 PS C:\> get-azureadmsgroup -filter "displayname eq 'boguspag1'"
 
@@ -9,7 +9,7 @@ Id                                   DisplayName Description
 266cc9ed-1522-4687-bae7-321bf578307a boguspag1 
 ```
 
-* The ID of the group will be the value used in the resourceid parameter.
+* The resourceid is very tricky with the cmdlets for groups, the ID of the group will be the value used in the resourceid parameter.
 ```
 PS C:\> Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadGroups" -ResourceId 266cc9ed-1522-4687-bae7-321bf578307a
 
