@@ -1,13 +1,13 @@
 ## Here are some examples on how to use PowerShell and Privilaged Admin Groups
 
 * Retrieve the objectid of the group you want to work with:
-'''
+```
 PS C:\> get-azureadmsgroup -filter "displayname eq 'boguspag1'"
 
 Id                                   DisplayName Description
 --                                   ----------- -----------
 266cc9ed-1522-4687-bae7-321bf578307a boguspag1 
-``
+```
 
 * The ID of the group is the resourceid.
 ```
