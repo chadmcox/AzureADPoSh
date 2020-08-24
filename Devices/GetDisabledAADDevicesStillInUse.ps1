@@ -31,7 +31,7 @@ Get-AzureADAuditSignInLogs -filter "appDisplayName eq 'Microsoft Office' and sta
         export-csv .\aad_device_still_used_but_disabled.csv
 
 
-Get-AzureADAuditSignInLogs -filter "appDisplayName eq 'Microsoft Office' and status/errorCode eq 135011" -all $true | select `
+Get-AzureADAuditSignInLogs -filter "status/errorCode eq 135011" -all $true | select `
     UserPrincipalName,AppDisplayName, @{Name="DeviceName";Expression={$_.DeviceDetail.DisplayName}}, `
     @{Name="ErrorCode";Expression={$_.Status.errorcode}}, @{Name="FailureReason";Expression={$_.Status.FailureReason}} -Unique | `
         export-csv .\aad_device_still_used_but_disabled.csv
