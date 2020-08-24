@@ -1,15 +1,32 @@
 ## Here are some examples on how to use PowerShell and Privileged Admin Groups
 
-* Retrieve the objectid/id of the group you want to work with:
+* List all the Groups being managed by PIM:
 ```
-PS C:\> get-azureadmsgroup -filter "displayname eq 'boguspag1'"
+PS C:\> Get-AzureADMSPrivilegedResource -ProviderId "aadGroups"
 
-Id                                   DisplayName Description
---                                   ----------- -----------
-266cc9ed-1522-4687-bae7-321bf578307a boguspag1 
+Id                  : 266cc9ed-1522-4687-bae7-321bf578307a
+ExternalId          : 266cc9ed-1522-4687-bae7-321bf578307a
+Type                : Security
+DisplayName         : boguspag1
+Status              : Active
+RegisteredDateTime  : 8/21/2020 8:57:29 PM
+RegisteredRoot      : 
+RoleAssignmentCount : 
+RoleDefinitionCount : 
+Permissions         : 
+
+```
+* The group's id / object id is used as the resourceid
+```
+PS C:\> get-azureadgroup -ObjectId 266cc9ed-1522-4687-bae7-321bf578307a
+
+ObjectId                             DisplayName Description
+--------                             ----------- -----------
+266cc9ed-1522-4687-bae7-321bf578307a boguspag1        
+
 ```
 
-* The resourceid is very tricky with the cmdlets for groups, the ID of the group will be the value used in the resourceid parameter.
+* The resourceid is very tricky with these cmdlets, for groups the ID of the group will be the value used in the resourceid parameter.
 ```
 PS C:\> Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadGroups" -ResourceId 266cc9ed-1522-4687-bae7-321bf578307a
 
