@@ -9,7 +9,7 @@ Id                                   DisplayName Description
 266cc9ed-1522-4687-bae7-321bf578307a boguspag1 
 ```
 
-* The ID of the group will be the value used in the resourceid.
+* The ID of the group will be the value used in the resourceid parameter.
 ```
 PS C:\> Get-AzureADMSPrivilegedRoleAssignment -ProviderId "aadGroups" -ResourceId 266cc9ed-1522-4687-bae7-321bf578307a
 
