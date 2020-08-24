@@ -1,4 +1,4 @@
-## Here are some examples on how to use PowerShell and Privilaged Admin Groups
+## Here are some examples on how to use PowerShell and Privileged Admin Groups
 
 * Retrieve the objectid of the group you want to work with:
 ```
