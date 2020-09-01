@@ -41,6 +41,12 @@ get-azureaddevice -all $true | where {$_.AccountEnabled -eq $false} | select `
 $dt = [datetime]'2020/01/01'
 get-azureaddevice -all $true | where {$_.ApproximateLastLogonTimeStamp -le $dt -and $_.AccountEnabled -eq $false} | Remove-AzureADDevice
 
+#list Hybrid Joined Computers no longer syncing and havent been logged into since a specific date.
+$dt = [datetime]'2020/03/01'
+get-azureaddevice -Filter "DeviceTrustType eq 'ServerAD'" -all $true | where {$_.DirSyncEnabled -ne $true -and $_.ApproximateLastLogonTimeStamp -lt $dt} | 
+    select objectid, deviceid, DisplayName,AccountEnabled,ApproximateLastLogonTimeStamp,DeviceOSType,DeviceOSVersion, `
+        DeviceTrustType,DirSyncEnabled,LastDirSyncTime,ProfileType | export-csv .\aad_device_serverad_brokesync.csv -NoTypeInformation
+
 #this will list devices that are still being used but are disabled
 Get-AzureADAuditSignInLogs -filter "appDisplayName eq 'Microsoft Office' and status/errorCode eq 135011" -all $true | select `
     UserPrincipalName,AppDisplayName, @{Name="DeviceName";Expression={$_.DeviceDetail.DisplayName}}, `
