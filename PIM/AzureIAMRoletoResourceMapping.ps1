@@ -1,25 +1,15 @@
 #Requires -modules azureadpreview,Az.Resources,Az.Accounts
 #Requires -version 4.0
 <#PSScriptInfo
-.VERSION 2020.7.15
-.GUID 476739f9-d907-4d5a-856e-71f9279955de
-.AUTHOR Chad.Cox@microsoft.com
-    https://blogs.technet.microsoft.com/chadcox/
-    https://github.com/chadmcox
-.COMPANYNAME 
-.COPYRIGHT This Sample Code is provided for the purpose of illustration only and is not
-intended to be used in a production environment.  THIS SAMPLE CODE AND ANY
-RELATED INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER
-EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.  We grant You a
-nonexclusive, royalty-free right to use and modify the Sample Code and to
-reproduce and distribute the object code form of the Sample Code, provided
-that You agree: (i) to not use Our name, logo, or trademarks to market Your
-software product in which the Sample Code is embedded; (ii) to include a valid
-copyright notice on Your software product in which the Sample Code is embedded;
-and (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and
-against any claims or lawsuits, including attorneys` fees, that arise or result
-from the use or distribution of the Sample Code..
+
+.VERSION 2020.7.27
+
+.GUID ad019fa9-f114-4c1a-8079-c2d10d2c6527
+
+.AUTHOR Chad Cox
+
+.COMPANYNAME Microsoft
+
 .DESCRIPTION 
  Export all azure subscription, resources and management groups along with all the PIM and Role assignments.
 
@@ -34,26 +24,16 @@ research
 https://github.com/JulianHayward/Azure-MG-Sub-Governance-Reporting/blob/master/pwsh/AzGovViz.ps1
 https://github.com/rodrigosantosms/azure-subscription-migration/blob/master/export-RBAC.ps1
 #>
-
-param($scriptpath="$env:USERPROFILE\Documents\AzureAccessReport")
+param($scriptpath="D:\Customer\HON\AzurePIMRelationships")
 if(!(test-path $scriptpath)){
     new-item -Path $scriptpath -ItemType Directory
 }
 
+
+
 #when enumerating large environments this also enumerates all the visual studio subs.  
 #the goal of this is to make sure to return the script back to the default sub for later
 $default_sub = Get-AzContext
-
-cd $scriptpath
-
-if(!(Get-AzureADCurrentSessionInfo)){
-    write-host "Logon to Azure AD"
-    Connect-AzureAD
-}
-if(!(Get-AzSubscription)){
-    write-host "logon to Azure"
-    Connect-AzAccount
-}
 
 #region Supporting Functions
 function enumerate-aadgroup{
@@ -76,7 +56,7 @@ function check-file{
     }elseif(!((Get-Item $file).length/1KB -gt 1/1kb)){
         write-host "$file is empty"
         return $true
-    }elseif((get-item -Path .\grpm.tmp).LastWriteTime -lt (get-date).AddDays(-3)){
+    }elseif((get-item -Path $file).LastWriteTime -lt (get-date).AddDays(-3)){
         write-host "$file is older than 3 days"
         return $true
     }else{
@@ -130,7 +110,7 @@ if(check-file -file $res_file){
         ResourceGroupName | export-csv $res_file -NoTypeInformation
 
     Write-host "Exporting All Azure Subscriptions and Resources"
-    get-azsubscription -pv azs | Set-AzContext | foreach{
+    get-azsubscription -pv azs | where {$_.state -eq "Enabled"} | Set-AzContext | foreach{
         $azs | select @{Name="ParentID";Expression={"/subscriptions/$($azs.ID)"}}, `
             @{Name="ParentName";Expression={"$($azs.name)"}}, `
             @{Name="ParentType";Expression={"/subscriptions"}}, `
@@ -152,7 +132,7 @@ if(check-file -file $res_file){
 $rbac_file = ".\rbac.tmp"
 if(check-file -file $rbac_file){
     write-host "Exporting all Azure Role Assignment from Subscriptions"
-    get-azsubscription -pv azs | Set-AzContext | foreach{
+    get-azsubscription -pv azs | where {$_.state -eq "Enabled"} | Set-AzContext | foreach{
         get-azRoleAssignment -pv azr | select scope, RoleDefinitionName,RoleDefinitionId,ObjectId,ObjectType, `
             DisplayName,SignInName,AssignmentState, @{Name="AssignmentType";Expression={"azRoleAssignment"}}
     } | select * -unique | export-csv $rbac_file -NoTypeInformation
@@ -186,7 +166,6 @@ Set-AzContext -Subscription $default_sub.Subscription
 
 $hash_inherited = import-csv .\rbac.tmp | select scope | group scope -AsHashTable -AsString
 
-$hash
 
 write-host "Creating Azure Resource Lookup Hash Table"
 $hash_res = import-csv $res_file | group ParentID -AsHashTable -AsString
@@ -194,27 +173,26 @@ $hash_res = import-csv $res_file | group ParentID -AsHashTable -AsString
 write-host "Creating Hash Lookup Table for PIM Enabled Resources"
 $hash_pimenabled = import-csv $rbac_file -pv azr | where Displayname -eq "MS-PIM" | group scope -AsHashTable -AsString
 
-$resm_File = ".\AzureResourceRelationShips.csv"
+$resm_File = ".\$($tenantdomain)_AzureResourceRelationships.csv"
 write-host "Mapping Management Groups to subscriptions and resources"
 import-csv $mg_File -pv mg | foreach{
-    $hash_res[$mg.childid] | select @{Name="ScopeID";Expression={$mg.ID}},@{Name="ScopeName";Expression={$mg.name}}, `
+    $hash_res[$mg.childid] | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$mg.ID}},@{Name="ScopeName";Expression={$mg.name}}, `
         @{Name="ScopeType";Expression={$mg.Type}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
-        @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($mg.ID)}}, `
+        @{Name="PIMEnabled";Expression={if($hash_pimenabled.ContainsKey($mg.ID)){$true;try{$hash_pimenabled.add($_.ResourceID,$null)}catch{}}}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){$_.ParentName}}}
-} | export-csv $resm_File -notypeinformation
-Write "Adding Resource Refrence"
-import-csv $res_file -pv mg | select @{Name="ScopeID";Expression={$_.ResourceID}},@{Name="ScopeName";Expression={$_.ResourceName}}, `
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}}} | export-csv $resm_File -notypeinformation
+Write-host "Adding Resource Refrence"
+import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ResourceID}},@{Name="ScopeName";Expression={$_.ResourceName}}, `
     @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){$_.ParentName}}} | export-csv $resm_File -Append
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append
 write-host "Adding Management group references"
-import-csv $res_file -pv mg | select @{Name="ScopeID";Expression={$_.ParentID}},@{Name="ScopeName";Expression={$_.ParentName}}, `
+import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ParentID}},@{Name="ScopeName";Expression={$_.ParentName}}, `
     @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.parentid)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){$_.ParentName}}} | export-csv $resm_File -Append
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append
 
 
 write-host "Flushing Azure Resource Lookup Hash Table"
@@ -232,5 +210,5 @@ if(check-file -file $grpm_File){
             @{Name="AssignmentType";Expression={$grp.AssignmentType}} 
     } | sort scope,objectid | select * -Unique | export-csv $grpm_File -NoTypeInformation
 }
-$role_File = ".\RoleAssignment.csv"
+$role_File = ".\$($tenantdomain)_AzureRoleAssignment.csv"
 @(import-csv $rbac_file; import-csv $pim_File; import-csv $grpm_File) | export-csv $role_File -NoTypeInformation
