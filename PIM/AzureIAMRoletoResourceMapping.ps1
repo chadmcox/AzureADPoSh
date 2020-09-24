@@ -107,7 +107,7 @@ if(check-file -file $res_file){
         @{Name="ResourceID";Expression={$_.ID}}, `
         @{Name="ResourceName";Expression={$_.displayname}}, `
         @{Name="ResourceType";Expression={$_.type}}, `
-        ResourceGroupName | export-csv $res_file -NoTypeInformation
+        ResourceGroupName,ResourceGroupID | export-csv $res_file -NoTypeInformation
 
     Write-host "Exporting All Azure Subscriptions and Resources"
     get-azsubscription -pv azs | where {$_.state -eq "Enabled"} | Set-AzContext | foreach{
@@ -117,6 +117,7 @@ if(check-file -file $res_file){
             @{Name="ResourceID";Expression={"/subscriptions/$($azs.ID)"}}, `
             @{Name="ResourceName";Expression={"$($azs.name)"}}, `
             @{Name="ResourceType";Expression={"/subscriptions"}}, `
+            @{Name="ResourceGroupName";Expression={}}, `
             @{Name="ResourceGroupName";Expression={}}
         get-azResource -pv azr | select @{Name="ParentID";Expression={"/subscriptions/$($azs.ID)"}}, `
             @{Name="ParentName";Expression={"$($azs.name)"}}, `
@@ -124,7 +125,8 @@ if(check-file -file $res_file){
             @{Name="ResourceID";Expression={$azr.resourceid}}, `
             @{Name="ResourceName";Expression={$azr.name}}, `
             @{Name="ResourceType";Expression={$azr.ResourceType}}, `
-            @{Name="ResourceGroupName";Expression={$azr.ResourceGroupName}}
+            @{Name="ResourceGroupName";Expression={$azr.ResourceGroupName}}, `
+            @{Name="ResourceGroupID";Expression={if($azr.ResourceGroupName){($azr.resourceid -split "/")[0..4] -join "/"}}}
     } | export-csv $res_file -NoTypeInformation -Append
 }
 #endregion
@@ -173,7 +175,7 @@ $hash_res = import-csv $res_file | group ParentID -AsHashTable -AsString
 write-host "Creating Hash Lookup Table for PIM Enabled Resources"
 $hash_pimenabled = import-csv $rbac_file -pv azr | where Displayname -eq "MS-PIM" | group scope -AsHashTable -AsString
 
-$resm_File = ".\$($tenantdomain)_AzureResourceRelationships.csv"
+$resm_File = ".\AzureResourceRelationships.csv"
 write-host "Mapping Management Groups to subscriptions and resources"
 import-csv $mg_File -pv mg | foreach{
     $hash_res[$mg.childid] | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$mg.ID}},@{Name="ScopeName";Expression={$mg.name}}, `
@@ -193,7 +195,12 @@ import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.parentid)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
         @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append
-
+write-host "Adding Resource group references"
+import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ResourceGroupID}},@{Name="ScopeName";Expression={$_.ResourceGroup}}, `
+    @{Name="ScopeType";Expression={"/resourceGroups"}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
+    @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.parentid)}}, `
+        @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) - $(($_.ParentID -split("/"))[2])"}}} | export-csv $resm_File -Append
 
 write-host "Flushing Azure Resource Lookup Hash Table"
 $hash_res = @{}
@@ -210,5 +217,5 @@ if(check-file -file $grpm_File){
             @{Name="AssignmentType";Expression={$grp.AssignmentType}} 
     } | sort scope,objectid | select * -Unique | export-csv $grpm_File -NoTypeInformation
 }
-$role_File = ".\$($tenantdomain)_AzureRoleAssignment.csv"
+$role_File = ".\AzureRoleAssignment.csv"
 @(import-csv $rbac_file; import-csv $pim_File; import-csv $grpm_File) | export-csv $role_File -NoTypeInformation
