@@ -2,7 +2,7 @@
 #Requires -version 4.0
 <#PSScriptInfo
 
-.VERSION 2020.9.2
+.VERSION 2020.9.24
 
 .GUID ad019fa9-f114-4c1a-8079-c2d10d2c6527
 
