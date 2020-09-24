@@ -118,7 +118,7 @@ if(check-file -file $res_file){
             @{Name="ResourceName";Expression={"$($azs.name)"}}, `
             @{Name="ResourceType";Expression={"/subscriptions"}}, `
             @{Name="ResourceGroupName";Expression={}}, `
-            @{Name="ResourceGroupName";Expression={}}
+            @{Name="ResourceGroupID";Expression={}}
         get-azResource -pv azr | select @{Name="ParentID";Expression={"/subscriptions/$($azs.ID)"}}, `
             @{Name="ParentName";Expression={"$($azs.name)"}}, `
             @{Name="ParentType";Expression={"/subscriptions"}}, `
