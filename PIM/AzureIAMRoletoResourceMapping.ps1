@@ -188,19 +188,19 @@ import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}
     @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append -notypeinformation
 write-host "Adding Management group references"
 import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ParentID}},@{Name="ScopeName";Expression={$_.ParentName}}, `
     @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.parentid)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append -notypeinformation
 write-host "Adding Resource group references"
-import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ResourceGroupID}},@{Name="ScopeName";Expression={$_.ResourceGroup}}, `
+import-csv $res_file -pv mg | where {($_.ResourceGroup)} | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ResourceGroupID}},@{Name="ScopeName";Expression={$_.ResourceGroup}}, `
     @{Name="ScopeType";Expression={"/resourceGroups"}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.ResourceGroupID)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) - $(($_.ParentID -split("/"))[2])"}}} | export-csv $resm_File -Append
+        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) - $(($_.ParentID -split("/"))[2])"}}} | export-csv $resm_File -Append -notypeinformation
 
 write-host "Flushing Azure Resource Lookup Hash Table"
 $hash_res = @{}
