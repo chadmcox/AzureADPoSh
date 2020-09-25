@@ -156,7 +156,7 @@ if(check-file -file $pim_File){
                          @{Name="Displayname";Expression={$member.DisplayName}}, `
                          @{Name="SigninName";Expression={$member.userprincipalname}}, `
                          @{Name="AssignmentState";Expression={if($azpra.AssignmentState -like "Active" -and $azpra.EndDateTime -eq $null) `
-                          {"$($azpra.AssignmentState) - Permanant"}elseif($azpra.AssignmentState -like "Active" -and $azpra.EndDateTime -like "*") `
+                          {"$($azpra.AssignmentState) - Permanent"}elseif($azpra.AssignmentState -like "Active" -and $azpra.EndDateTime -like "*") `
                           {"$($azpra.AssignmentState) - Elevated"}else{$azpra.AssignmentState}}}, `
                          @{Name="AssignmentType";Expression={"PrivilegedRoleAssignment"}}
             }
