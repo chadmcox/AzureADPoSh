@@ -151,7 +151,7 @@ if(check-file -file $rbac_file){
 $pim_File = ".\pim.tmp"
 if(check-file -file $pim_File){
     write-host "Exporting all Privileged Identity Management Enabled Azure Roles and Members"
-    import-csv $rbac_file  | where Displayname -eq "MS-PIM" | group scope -pv azr  | foreach{
+    import-csv $rbac_file | group scope -pv azr  | foreach{
         Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$(($azr).name)'" -pv pim | foreach{
             Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $pim.ID -pv azpra | where MemberType -eq "Direct" | foreach{
                 $role = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -id $azpra.RoleDefinitionId -ResourceId $azpra.ResourceId
