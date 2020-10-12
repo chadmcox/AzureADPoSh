@@ -26,7 +26,7 @@ RoleDefinitionCount :
 Permissions         : 
 ```
 
-## Retrieve the role definitions.
+## Retrieve the role.
 For this example going to work with the contributor role, will use the where clause to only retrieve that object and will store in a variable called contributor.
 ```
 PS C:\Temp> Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -ResourceId $resourceid.id | where displayname -eq "Contributor" -OutVariable Contributor
@@ -134,4 +134,190 @@ Schedule         : class AzureADMSPrivilegedSchedule {
                    }
                    
 Reason           : 
+```
+## View the PIM Settings for the role
+```
+PS C:\Temp> Get-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Filter "resourceid eq '$($resourceid.id)' and RoleDefinitionId eq '$($Contributor.id)'"
+
+
+Id                    : 54b8c1e1-53de-4809-94f8-ae11156c740a
+ResourceId            : 78f5d166-4730-4ae7-affe-1c9abb817a98
+RoleDefinitionId      : b0d08d34-03d8-4e23-866b-cb6c88696dbd
+IsDefault             : False
+LastUpdatedDateTime   : 10/9/2020 7:11:12 PM
+LastUpdatedBy         : Chad Cox
+AdminEligibleSettings : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"permanentAssignment":true,"maximumGrantPeriodInMinutes":525600}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":false}
+                        }
+                        }
+AdminMemberSettings   : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"permanentAssignment":true,"maximumGrantPeriodInMinutes":259200}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":true}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: JustificationRule
+                          Setting: {"required":false}
+                        }
+                        }
+UserEligibleSettings  : {}
+UserMemberSettings    : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: TicketingRule
+                          Setting: {"ticketingRequired":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: AcrsRule
+                          Setting: {"acrsRequired":false,"acrs":null}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"permanentAssignment":true,"maximumGrantPeriodInMinutes":480}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":true}
+                        }
+                        ...}
+```
+## Change the settings for the PIM role
+### Copy settings from existing role
+In most cases I usually set up one role to be the template and then copy it to the others.  for this example the owner role has been set up the way I want the rest of the roles to look. Retrieve the owner role information
+```
+PS C:\Temp> Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -ResourceId $resourceid.id | where displayname -eq "Owner" -OutVariable Owner
+
+
+Id                      : d047c8f6-0921-46f6-b73b-70a6cb50381d
+ResourceId              : 78f5d166-4730-4ae7-affe-1c9abb817a98
+ExternalId              : /subscriptions/0292f9d1-2712-4325-98ba-fbc2b5058169/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635
+DisplayName             : Owner
+SubjectCount            : 
+EligibleAssignmentCount : 
+ActiveAssignmentCount   : 
+
+PS C:\Temp> Get-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Filter "resourceid eq '$($resourceid.id)' and RoleDefinitionId eq '$($Owner.id)'" -OutVariable ownersettings
+
+
+Id                    : d2e12ba8-2edc-4eb3-8a90-45a27a33cf48
+ResourceId            : 78f5d166-4730-4ae7-affe-1c9abb817a98
+RoleDefinitionId      : d047c8f6-0921-46f6-b73b-70a6cb50381d
+IsDefault             : True
+LastUpdatedDateTime   : 
+LastUpdatedBy         : 
+AdminEligibleSettings : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"maximumGrantPeriod":"365.00:00:00","maximumGrantPeriodInMinutes":525600,"permanentAssignment":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":false}
+                        }
+                        }
+AdminMemberSettings   : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"maximumGrantPeriod":"180.00:00:00","maximumGrantPeriodInMinutes":259200,"permanentAssignment":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: JustificationRule
+                          Setting: {"required":true}
+                        }
+                        }
+UserEligibleSettings  : {}
+UserMemberSettings    : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"maximumGrantPeriod":"08:00:00","maximumGrantPeriodInMinutes":480,"permanentAssignment":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: JustificationRule
+                          Setting: {"required":true}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ApprovalRule
+                          Setting: {"enabled":false,"isCriteriaSupported":false,"approvers":null,"businessFlowId":null,"hasNotificationPolicy":false}
+                        }
+                        ...}
+```
+Stored the owner's settings objects in a variable called ownersettings, using the outvariable parameter.  will retrieve the contributor settings and store in a variable.
+
+```
+PS C:\Temp> Get-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Filter "resourceid eq '$($resourceid.id)' and RoleDefinitionId eq '$($Contributor.id)'" -outvariable Contributorsettings
+
+
+Id                    : 54b8c1e1-53de-4809-94f8-ae11156c740a
+ResourceId            : 78f5d166-4730-4ae7-affe-1c9abb817a98
+RoleDefinitionId      : b0d08d34-03d8-4e23-866b-cb6c88696dbd
+IsDefault             : False
+```
+Now change the settings
+```
+PS C:\Temp> Set-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Id $Contributorsettings.id -AdminEligibleSettings $ownersettings.AdminEligibleSettings `
+    -AdminMemberSettings $ownersettings.AdminMemberSettings -UserEligibleSettings $ownersettings.UserEligibleSettings `
+        -UserMemberSettings $ownersettings.UserMemberSettings
+```
+Now Validate the settings took place
+```
+PS C:\Temp> Get-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Filter "resourceid eq '$($resourceid.id)' and RoleDefinitionId eq '$($Contributor.id)'" -outvariable Contributorsettings
+
+
+Id                    : 54b8c1e1-53de-4809-94f8-ae11156c740a
+ResourceId            : 78f5d166-4730-4ae7-affe-1c9abb817a98
+RoleDefinitionId      : b0d08d34-03d8-4e23-866b-cb6c88696dbd
+IsDefault             : False
+LastUpdatedDateTime   : 10/12/2020 4:38:15 PM
+LastUpdatedBy         : Chad Cox
+AdminEligibleSettings : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"maximumGrantPeriod":"365.00:00:00","maximumGrantPeriodInMinutes":525600,"permanentAssignment":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":false}
+                        }
+                        }
+AdminMemberSettings   : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"maximumGrantPeriod":"180.00:00:00","maximumGrantPeriodInMinutes":259200,"permanentAssignment":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: JustificationRule
+                          Setting: {"required":true}
+                        }
+                        }
+UserEligibleSettings  : {}
+UserMemberSettings    : {class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ExpirationRule
+                          Setting: {"maximumGrantPeriod":"08:00:00","maximumGrantPeriodInMinutes":480,"permanentAssignment":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: MfaRule
+                          Setting: {"mfaRequired":false}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: JustificationRule
+                          Setting: {"required":true}
+                        }
+                        , class AzureADMSPrivilegedRuleSetting {
+                          RuleIdentifier: ApprovalRule
+                          Setting: {}
+                        }
+                        ...}
 ```
