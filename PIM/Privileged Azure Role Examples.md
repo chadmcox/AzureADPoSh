@@ -269,7 +269,7 @@ PS C:\Temp> Set-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Id $C
     -AdminMemberSettings $ownersettings.AdminMemberSettings -UserEligibleSettings $ownersettings.UserEligibleSettings `
         -UserMemberSettings $ownersettings.UserMemberSettings
 ```
-Now Validate the settings took place
+Now Validate the settings took place, note in the usermembersettings the requiremfa is now false.
 ```
 PS C:\Temp> Get-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Filter "resourceid eq '$($resourceid.id)' and RoleDefinitionId eq '$($Contributor.id)'" -outvariable Contributorsettings
 
@@ -320,4 +320,34 @@ UserMemberSettings    : {class AzureADMSPrivilegedRuleSetting {
                           Setting: {}
                         }
                         ...}
+```
+### To change settings creating Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedRuleSetting objects.
+Just going to change one setting in the usermembersettings so that mfarequire is true.
+```
+PS C:\Temp> $setting = New-Object Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedRuleSetting
+
+PS C:\Temp> $setting.RuleIdentifier = "MfaRule"
+
+PS C:\Temp> $setting.Setting = "{'required':true}"
+
+PS C:\Temp> Set-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Id $Contributorsettings.id -UserMemberSettings $setting
+
+PS C:\Temp> Get-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Filter "resourceid eq '$($resourceid.id)' and RoleDefinitionId eq '$($Contributor.id)'" | select -ExpandProperty UserMemberSettings
+
+RuleIdentifier    Setting                                                                                        
+--------------    -------                                                                                        
+MfaRule           {'required':true}                                                                              
+TicketingRule     {"ticketingRequired":false}                                                                    
+AcrsRule          {"acrsRequired":false,"acrs":null}                                                             
+ExpirationRule    {"maximumGrantPeriod":"08:00:00","maximumGrantPeriodInMinutes":480,"permanentAssignment":false}
+JustificationRule {"required":true}                                                                              
+ApprovalRule      {}    
+```
+
+### Notification rules are not prime time yet but going to throw this one here.  This particular setting is only to make sure the PIM admins dont get notified everytime someone elevates a role.
+its possible to use this in the admin settings as well but, for what ever reason if you set it against the others it will clear the user member notification settings.  I assume this is what happens when dealing with non published features.  Also because the feature isnt published its not possible to query the settings for notifications as of 10/12/2020
+```
+PS C:\Temp> $AdminNotificationRule = [Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedRuleSetting]::new("NotificationRule",'{"policies":[{"deliveryMechanism":"email","setting":[{"customreceivers":null,"isdefaultreceiverenabled":false,"notificationlevel":2,"recipienttype":2},{"customreceivers":null,"isdefaultreceiverenabled":true,"notificationlevel":2,"recipienttype":0},{"customreceivers":null,"isdefaultreceiverenabled":true,"notificationlevel":2,"recipienttype":1}]}]}')
+
+PS C:\Temp> Set-AzureADMSPrivilegedRoleSetting -ProviderId AzureResources -Id $Contributorsettings.id -UserMemberSettings $AdminNotificationRule
 ```
