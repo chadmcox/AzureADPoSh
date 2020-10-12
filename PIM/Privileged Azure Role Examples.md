@@ -114,4 +114,24 @@ Schedule         : class AzureADMSPrivilegedSchedule {
                    
 Reason           : 
 ```
+## Remove an assignment
+```
+PS C:\Temp> Open-AzureADMSPrivilegedRoleAssignmentRequest -ProviderId AzureResources -ResourceId $resourceid.id `
+            -RoleDefinitionId $Contributor.id -SubjectId "d2ea07f0-fce5-42cc-a12f-5e9d45d22570" `
+            -Type "AdminRemove" -assignmentState "Eligible" -Schedule $schedule
 
+
+ResourceId       : 78f5d166-4730-4ae7-affe-1c9abb817a98
+RoleDefinitionId : b0d08d34-03d8-4e23-866b-cb6c88696dbd
+SubjectId        : d2ea07f0-fce5-42cc-a12f-5e9d45d22570
+Type             : AdminRemove
+AssignmentState  : Eligible
+Schedule         : class AzureADMSPrivilegedSchedule {
+                     StartDateTime: 1/1/0001 12:00:00 AM
+                     EndDateTime: 
+                     Type: Once
+                     Duration: PT0S
+                   }
+                   
+Reason           : 
+```
