@@ -1,5 +1,5 @@
 
-##Add a Management Group, Subscription, Resource Group to be managed by PIM
+## Add a Management Group, Subscription, Resource Group to be managed by PIM
 
 ```
 PS C:\Temp> $externalid = "/subscriptions/3e49b46f-ac28-4654-8694-6ee0dc924fd1"
@@ -7,7 +7,7 @@ Add-AzureADMSPrivilegedResource -ProviderId AzureResources -ExternalId $external
 
 ```
 
-##Retrieve the PIM resource ID
+##R etrieve the PIM resource ID
 Using the outvariable, going to store the object in the resourceid variable
 
 ```
@@ -26,7 +26,7 @@ RoleDefinitionCount :
 Permissions         : 
 ```
 
-##Retrieve the role definitions.
+## Retrieve the role definitions.
 For this example going to work with the contributor role, will use the where clause to only retrieve that object and will store in a variable called contributor.
 ```
 PS C:\Temp> Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -ResourceId $resourceid.id | where displayname -eq "Contributor" -OutVariable Contributor
@@ -41,7 +41,7 @@ EligibleAssignmentCount :
 ActiveAssignmentCount   : 
 ```
 
-#To view the current members of the contributor role and their status
+# To view the current members of the contributor role and their status
 
 ```
 PS C:\Temp> Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $resourceid.id -filter "RoledefinitionId eq '$($Contributor.id)'"
@@ -67,7 +67,7 @@ ObjectId                             DisplayName  UserPrincipalName             
 b0876644-0a73-4105-bab2-8a346aaca72d Alison Kirby Alison.Kirby@M365x437870.onmicrosoft.com Member  
 ```
 
-#Change Active Assignment to Eligible
+# Change Active Assignment to Eligible
 Have to create a schedule object to include with the request.  This can be used to control things like how long someone is alloweds to have access to a role for.  The schedule I have here is just a generic schedule.
 ```
 PS C:\Temp> $schedule = New-Object Microsoft.Open.MSGraph.Model.AzureADMSPrivilegedSchedule
@@ -93,7 +93,7 @@ Schedule         : class AzureADMSPrivilegedSchedule {
                    
 Reason           : 
 ```
-##Add a new elgible assignment
+## Add a new elgible assignment
 ```
 PS C:\Temp> Open-AzureADMSPrivilegedRoleAssignmentRequest -ProviderId AzureResources -ResourceId $resourceid.id `
             -RoleDefinitionId $Contributor.id -SubjectId "d2ea07f0-fce5-42cc-a12f-5e9d45d22570" `
