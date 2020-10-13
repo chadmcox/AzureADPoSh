@@ -24,7 +24,7 @@ research
 https://github.com/JulianHayward/Azure-MG-Sub-Governance-Reporting/blob/master/pwsh/AzGovViz.ps1
 https://github.com/rodrigosantosms/azure-subscription-migration/blob/master/export-RBAC.ps1
 #>
-param($scriptpath="D:\Customer\HON\AzurePIMRelationships")
+param($scriptpath="c:\temp")
 if(!(test-path $scriptpath)){
     new-item -Path $scriptpath -ItemType Directory
 }
