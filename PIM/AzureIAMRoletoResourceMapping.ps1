@@ -94,7 +94,7 @@ function expandallmg{
 $mg_File = ".\mg.tmp"
 if(check-file -file $mg_file){
     write-host "Exporting Azure Management Group Relationships"
-    $allmg = getallmg -mgn d9756784-046e-4a6a-a7a4-d053357dd76f 
+    $allmg = getallmg -mgn (Get-AzureADTenantDetail).objectid 
     $hashallmg = $allmg | group Childname -AsHashTable -AsString
 
     @(foreach($omg in $allmg){
