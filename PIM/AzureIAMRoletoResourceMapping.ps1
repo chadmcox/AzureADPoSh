@@ -2,7 +2,7 @@
 #Requires -version 4.0
 <#PSScriptInfo
 
-.VERSION 2020.10.7
+.VERSION 2020.10.13
 
 .GUID ad019fa9-f114-4c1a-8079-c2d10d2c6527
 
@@ -64,19 +64,29 @@ function check-file{
         return $false
     }
 }
-function expand-azuremg{
-    param($mg,$mglevel)
-    if($mg){
-        $hash_mg[$mg] | foreach{
-            $_ | select @{Name="ID";Expression={$amg.id}}, `
-            @{Name="name";Expression={$amg.displayname}}, `
+function getallmg{
+    param($mgn)
+    Get-AzManagementGroup -GroupName $mgn -expand -pv amg | select -ExpandProperty children | foreach{
+        $_ | select @{Name="ID";Expression={$amg.id}}, `
+            @{Name="name";Expression={$amg.name}}, `
             @{Name="type";Expression={$amg.type}}, `
-            @{Name="ChildID";Expression={$_.Child}}, `
-            @{Name="ChildType";Expression={$_.childtype}}, `
-            @{Name="Childname";Expression={$_.childname}}, `
-            @{Name="Childlevel";Expression={$mglevel}}
-            expand-azuremg -mg $_.child -mglevel $($mglevel + 1)
-        }
+            @{Name="ChildID";Expression={$_.id}}, `
+            @{Name="ChildType";Expression={$_.type}}, `
+            @{Name="Childname";Expression={$_.name}}
+        getallmg -mgn $_.name
+    }  
+}
+function expandallmg{
+    param($mg)
+    if($hashallmg.ContainsKey($mg)){
+    $hashallmg[$mg] | foreach{ $_ | select `
+        @{Name="ID";Expression={$_.id}}, `
+        @{Name="name";Expression={$_.name}}, `
+        @{Name="type";Expression={$_.type}},
+        @{Name="ChildID";Expression={$omg.Childid}}, `
+        @{Name="ChildType";Expression={$omg.childtype}}, `
+        @{Name="Childname";Expression={$omg.childname}}
+        expandallmg -mg $_.name}
     }
 }
 #endregion
@@ -84,17 +94,12 @@ function expand-azuremg{
 $mg_File = ".\mg.tmp"
 if(check-file -file $mg_file){
     write-host "Exporting Azure Management Group Relationships"
-    $hash_mg = Get-AzManagementGroup | foreach{
-        $_ | where Displayname -eq "Tenant Root Group" | select @{Name="Parent";Expression={"\"}}, @{Name="Child";Expression={$_.id}}, `
-        @{Name="childname";Expression={$_.displayname}},@{Name="ChildType";Expression={$_.type}}
-        Get-AzManagementGroup -GroupName $_.name -Expand -pv parent | select -ExpandProperty Children | select @{Name="Parent";Expression={$parent.ID}}, @{Name="Child";Expression={$_.id}}, `
-        @{Name="childname";Expression={$_.displayname}},@{Name="ChildType";Expression={$_.type}}
-    } | group parent -AsHashTable -AsString
+    $allmg = getallmg -mgn d9756784-046e-4a6a-a7a4-d053357dd76f 
+    $hashallmg = $allmg | group Childname -AsHashTable -AsString
 
-    Get-AzManagementGroup -pv amg | foreach{
-        $MGLevel = 1
-        expand-azuremg -mg $amg.id -mglevel 1
-    } | export-csv $mg_File -NoTypeInformation
+    @(foreach($omg in $allmg){
+        expandallmg -mg $omg.Childname
+    }) | export-csv $mg_File -NoTypeInformation
 }
 
 $res_file = ".\res.tmp"
@@ -142,10 +147,14 @@ if(check-file -file $res_file){
 $rbac_file = ".\rbac.tmp"
 if(check-file -file $rbac_file){
     write-host "Exporting all Azure Role Assignment from Subscriptions"
+    import-csv $mg_File | where {$_.childtype -eq "/providers/Microsoft.Management/managementGroups"} | select -expandproperty childid -unique -pv mg | foreach{
+        get-azRoleAssignment -scope $mg -pv azr | where {$_.scope -eq $mg} | select scope, RoleDefinitionName,RoleDefinitionId,ObjectId,ObjectType, `
+            DisplayName,SignInName,AssignmentState, @{Name="AssignmentType";Expression={"azRoleAssignment"}}
+    } | export-csv $rbac_file -NoTypeInformation
     get-azsubscription -pv azs | where {$_.state -eq "Enabled"} | Set-AzContext | foreach{
         get-azRoleAssignment -pv azr | select scope, RoleDefinitionName,RoleDefinitionId,ObjectId,ObjectType, `
             DisplayName,SignInName,AssignmentState, @{Name="AssignmentType";Expression={"azRoleAssignment"}}
-    } | select * -unique | export-csv $rbac_file -NoTypeInformation
+    } | select * -unique | export-csv $rbac_file -NoTypeInformation -Append
 }
 
 $pim_File = ".\pim.tmp"
