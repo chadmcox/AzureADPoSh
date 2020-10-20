@@ -195,31 +195,47 @@ write-host "Creating Hash Lookup Table for PIM Enabled Resources"
 $hash_pimenabled = import-csv $rbac_file -pv azr | where Displayname -eq "MS-PIM" | group scope -AsHashTable -AsString
 
 $resm_File = ".\AzureResourceRelationships.csv"
-write-host "Mapping Management Groups to subscriptions and resources"
+Write-host "Mapping All Management Groups to themselves for scopeid reference"
+$allmg | where childtype -eq "/providers/Microsoft.Management/managementGroups" | select @{N="UniqueID";E={([guid]::newguid()).guid}}, `
+    @{Name="ScopeID";Expression={$_.childid}},@{Name="ScopeName";Expression={$_.childname}}, `
+    @{Name="ScopeType";Expression={$_.childtype}},@{Name="ResourceID";Expression={$_.childid}},@{Name="ResourceName";Expression={$_.childname}}, `
+    @{Name="ResourceType";Expression={$_.childtype}},ResourceGroup, `
+    @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.childid)}}, `
+    @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.childid)}}, `
+    @{Name="Subscription";Expression={}} | export-csv $resm_File -notypeinformation -Append
+Write-host "Mapping All Management Groups to child management groups for scopeid reference"
+import-csv $mg_File -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$mg.ID}},@{Name="ScopeName";Expression={$mg.name}}, `
+        @{Name="ScopeType";Expression={$mg.Type}},@{Name="ResourceID";Expression={$mg.childid}},@{Name="ResourceName";Expression={$mg.childname}}, `
+        @{Name="ResourceType";Expression={$mg.childtype}},ResourceGroup, `
+        @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($mg.ID)}}, `
+        @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ID)}}, `
+        @{Name="Subscription";Expression={}} | export-csv $resm_File -notypeinformation -Append
+Write-host "Mapping All Management Groups to Resources based on subscriptions"
 import-csv $mg_File -pv mg | foreach{
     $hash_res[$mg.childid] | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$mg.ID}},@{Name="ScopeName";Expression={$mg.name}}, `
-        @{Name="ScopeType";Expression={$mg.Type}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
-        @{Name="PIMEnabled";Expression={if($hash_pimenabled.ContainsKey($mg.ID)){$true;try{$hash_pimenabled.add($_.ResourceID,$null)}catch{}}}}, `
+        @{Name="ScopeType";Expression={$mg.Type}},ResourceID,ResourceName,ResourceType,@{Name="ResourceGroup";Expression={$_.ResourceGroupName}}, `
+        @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($mg.ID)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}}} | export-csv $resm_File -notypeinformation
-Write-host "Adding Resource Refrence"
+        @{Name="Subscription";Expression={$_.Subscription}}
+} | export-csv $resm_File -notypeinformation -Append
+Write-host "Adding Resource Reference to Resource"
 import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ResourceID}},@{Name="ScopeName";Expression={$_.ResourceName}}, `
-    @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
+    @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,@{Name="ResourceGroup";Expression={$mg.ResourceGroupName}}, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.resourceid)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append -notypeinformation
-write-host "Adding Management group references"
+        @{Name="Subscription";Expression={$mg.subscription}} | export-csv $resm_File -Append
+write-host "Adding Subscription references to resource"
 import-csv $res_file -pv mg | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ParentID}},@{Name="ScopeName";Expression={$_.ParentName}}, `
-    @{Name="ScopeType";Expression={$_.ResourceType}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
+    @{Name="ScopeType";Expression={$_.ParentType}},ResourceID,ResourceName,ResourceType,@{Name="ResourceGroup";Expression={$mg.ResourceGroupName}}, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.parentid)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) ($(($_.ParentID -split("/"))[2]))"}}} | export-csv $resm_File -Append -notypeinformation
-write-host "Adding Resource group references"
+        @{Name="Subscription";Expression={$mg.subscription}} | export-csv $resm_File -Append
+write-host "Adding Resource group references to resources"
 import-csv $res_file -pv mg | where {($_.ResourceGroupName)} | select @{N="UniqueID";E={([guid]::newguid()).guid}},@{Name="ScopeID";Expression={$_.ResourceGroupID}},@{Name="ScopeName";Expression={$_.ResourceGroupName}}, `
-    @{Name="ScopeType";Expression={"/resourceGroups"}},ResourceID,ResourceName,ResourceType,ResourceGroup, `
+    @{Name="ScopeType";Expression={"/resourceGroups"}},ResourceID,ResourceName,ResourceType,@{Name="ResourceGroup";Expression={$mg.ResourceGroupName}}, `
     @{Name="PIMEnabled";Expression={$hash_pimenabled.ContainsKey($_.ResourceGroupID)}}, `
         @{Name="Direct";Expression={$hash_inherited.ContainsKey($_.ResourceID)}}, `
-        @{Name="Subscription";Expression={if($_.parenttype -eq "/subscriptions"){"$($_.ParentName) - $(($_.ParentID -split("/"))[2])"}}} | export-csv $resm_File -Append
+        @{Name="Subscription";Expression={$mg.subscription}} | export-csv $resm_File -Append
 
 write-host "Flushing Azure Resource Lookup Hash Table"
 $hash_res = @{}
