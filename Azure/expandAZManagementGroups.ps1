@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 2020.11.12
+.VERSION 2020.11.20
 
 .GUID 1be4febf-db79-4b83-9e81-ab88b4dda0c8
 
@@ -38,12 +38,15 @@ Connect-AzureAD
 Set-Item Env:\SuppressAzurePowerShellBreakingChangeWarnings "true"
 
 function expandAzMG{
+    [cmdletbinding()]
     param($name)
+    write-information "Expanding Azure Manageent Group $name"
     Get-AzManagementGroup -GroupName $name -Expand -pv mg | select -ExpandProperty Children | foreach{
-        $_ | select @{N="Parent";E={$mg.displayname}},@{N="Parentid";E={$mg.id}},@{N="Child";E={$_.displayname}},@{N="Childid";E={$_.id}},@{N="ChildType";E={$_.type}},
-        expandAzMG -name $_.name
+        $_ | select @{N="Parent";E={$mg.displayname}},@{N="Parentid";E={$mg.id}},@{N="Child";E={$_.displayname}},@{N="Childid";E={$_.id}},@{N="ChildType";E={$_.type}}
+        if($_.type -eq "/providers/Microsoft.Management/managementGroups"){
+            expandAzMG -name $_.name
+        }
     }
-
 }
 
 
