@@ -93,7 +93,7 @@ function expandallmg{
         @{Name="ChildID";Expression={$omg.Childid}}, `
         @{Name="ChildType";Expression={$omg.childtype}}, `
         @{Name="Childname";Expression={$omg.childname}}
-        expandallmg -mg $_.ChildID}
+        expandallmg -mg $_.ID}
     }
 }
 #endregion
