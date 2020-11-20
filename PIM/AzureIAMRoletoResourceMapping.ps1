@@ -2,7 +2,7 @@
 #Requires -version 4.0
 <#PSScriptInfo
 
-.VERSION 2020.10.13
+.VERSION 2020.11.20
 
 .GUID ad019fa9-f114-4c1a-8079-c2d10d2c6527
 
@@ -68,15 +68,19 @@ function check-file{
     }
 }
 function getallmg{
+    [cmdletbinding()]
     param($mgn)
+    write-information "Expanding Management Group $mgn"
     Get-AzManagementGroup -GroupName $mgn -expand -pv amg | select -ExpandProperty children | foreach{
         $_ | select @{Name="ID";Expression={$amg.id}}, `
-            @{Name="name";Expression={$amg.name}}, `
+            @{Name="name";Expression={$amg.displayname}}, `
             @{Name="type";Expression={$amg.type}}, `
             @{Name="ChildID";Expression={$_.id}}, `
             @{Name="ChildType";Expression={$_.type}}, `
-            @{Name="Childname";Expression={$_.name}}
-        getallmg -mgn $_.name
+            @{Name="Childname";Expression={$_.displayname}}
+            if($_.type -eq "/providers/Microsoft.Management/managementGroups"){
+                getallmg -mgn $_.name
+            }
     }  
 }
 function expandallmg{
@@ -89,7 +93,7 @@ function expandallmg{
         @{Name="ChildID";Expression={$omg.Childid}}, `
         @{Name="ChildType";Expression={$omg.childtype}}, `
         @{Name="Childname";Expression={$omg.childname}}
-        expandallmg -mg $_.name}
+        expandallmg -mg $_.ChildID}
     }
 }
 #endregion
@@ -98,10 +102,10 @@ $mg_File = ".\mg.tmp"
 if(check-file -file $mg_file){
     write-host "Exporting Azure Management Group Relationships"
     $allmg = getallmg -mgn (Get-AzureADTenantDetail).objectid 
-    $hashallmg = $allmg | group Childname -AsHashTable -AsString
+    $hashallmg = $allmg | group ChildID -AsHashTable -AsString
 
     @(foreach($omg in $allmg){
-        expandallmg -mg $omg.Childname
+        expandallmg -mg $omg.ChildID
     }) | export-csv $mg_File -NoTypeInformation
 }
 
