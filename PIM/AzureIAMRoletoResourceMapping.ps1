@@ -32,6 +32,8 @@ if(!(test-path $scriptpath)){
 connect-azaccount
 connect-azuread
 
+cd $scriptpath
+
 #when enumerating large environments this also enumerates all the visual studio subs.  
 #the goal of this is to make sure to return the script back to the default sub for later
 $default_sub = Get-AzContext
