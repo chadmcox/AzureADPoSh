@@ -41,7 +41,7 @@ function auditAADcredential{
             @{Name="StartDate";Expression={$_.StartDate}}, `
             @{Name="EndDate";Expression={$_.EndDate}}, `
             @{Name="Expired";Expression={$_.enddate -lt (get-date).DateTime}}, `
-            @{Name="AtRisk";Expression={(New-TimeSpan -start $_.StartDate -end $_.EndDate).days -gt 365}}
+            @{Name="AtRisk";Expression={(New-TimeSpan -start $_.StartDate -end $_.EndDate).days -gt 366}}
         $thing.KeyCredentials | select `
             @{Name="ObjectId";Expression={$thing.objectid}}, `
             @{Name="DisplayName";Expression={$thing.Displayname}}, `
@@ -50,7 +50,7 @@ function auditAADcredential{
             @{Name="StartDate";Expression={$_.StartDate}}, `
             @{Name="EndDate";Expression={$_.EndDate}}, `
             @{Name="Expired";Expression={$_.enddate -lt (get-date).DateTime}}, `
-            @{Name="AtRisk";Expression={(New-TimeSpan -start $_.StartDate -end $_.EndDate).days -gt 365}}
+            @{Name="AtRisk";Expression={(New-TimeSpan -start $_.StartDate -end $_.EndDate).days -gt 366}}
     }
 }
 
