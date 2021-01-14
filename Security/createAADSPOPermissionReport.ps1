@@ -26,10 +26,6 @@ https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/dete
 #>
 $permissions = "Sites.FullControl.All","Sites.Manage.All","Sites.Read.All","Sites.ReadWrite.All","Files.Read.All","Files.ReadWrite.All","File.Read.All"
 
-if(!(Get-AzureADCurrentSessionInfo)){
-    connect-azuread
-}
-
 write-host "Retrieving Service Principals"
 $aadsps = Get-AzureADServicePrincipal -all $true | where {$_.PublisherName -ne "Microsoft" -and $_.PublisherName -ne "Microsoft Services"}
 
@@ -53,7 +49,7 @@ function getallAADAPPconsents{
             @{Name="ApplicationAccountEnabled";Expression={$aadsp.AccountEnabled}}, `
             @{Name="ApplicationURL";Expression={$aadsp.ReplyUrls[0]}}, `
             @{Name="ApplicationOwner";Expression={"NA"}}, `
-            @{Name="LoggedintoLast30days";Expression={if(Get-AzureADAuditSignInLogs -Filter "appId eq '1064f7e4-a9e2-467d-8d42-f45cc59f145d'" -Top 1){$true}else{$False}}}
+            @{Name="LoggedintoLast30days";Expression={if(Get-AzureADAuditSignInLogs -Filter "appId eq '$($aadsp.appid)'" -Top 1){$true}else{$False}}}
 
         } 
     }
