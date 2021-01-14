@@ -29,14 +29,14 @@ $permissions = "Mail.Read","Mail.Read.Shared","Mail.ReadBasic","Mail.ReadBasic.A
     "Mail.Send.Shared","MailboxSettings.Read","MailboxSettings.ReadWrite","email","EWS.AccessAsUser.All","Exchange.Manage"
 
 
-$permissions = "Sites.FullControl.All","Sites.Manage.All","Sites.Read.All","Sites.ReadWrite.All","Files.Read.All","Files.ReadWrite.All","File.Read.All"
+
 
 write-host "Retrieving Service Principals"
 $aadsps = Get-AzureADServicePrincipal -all $true | where {$_.PublisherName -ne "Microsoft" -and $_.PublisherName -ne "Microsoft Services"}
 
 write-host "Building hash table with all api permissions"
-$hash_approles = Get-AzureADServicePrincipal -all $true  | select -ExpandProperty AppRoles | group id -AsHashTable -AsString
-$hash_approles_desc = Get-AzureADServicePrincipal -all $true | select -ExpandProperty AppRoles | group value -AsHashTable -AsString
+$hash_approles = Get-AzureADServicePrincipal -all $true  | select -ExpandProperty AppRoles  | where {$_.value -in $permissions} | group id -AsHashTable -AsString
+$hash_approles_desc = Get-AzureADServicePrincipal -all $true | select -ExpandProperty AppRoles | where {$_.value -in $permissions} | group value -AsHashTable -AsString
 
 function getallAADAPPconsents{
     write-host "Enumerating Delegated Consents"
@@ -46,14 +46,16 @@ function getallAADAPPconsents{
             $oa2pg.scope -split(" ") | where {$_ -in $permissions} | select `
             @{Name="PermissionType";Expression={"Delegated"}}, `
             @{Name="Scope";Expression={$_}}, `
-            @{Name="ScopeName";Expression={$hash_approles_desc[$_].displayname}}, `
+            @{Name="ScopeName";Expression={($hash_approles_desc[$_].displayname)[0]}}, `
             @{Name="Application";Expression={$aadsp.displayname}}, `
             @{Name="ApplicationObjectID";Expression={$aadsp.ObjectID}}, `
             @{Name="ApplicationPublisherName";Expression={$aadsp.PublisherName}}, `
             @{Name="ApplicationAppDisplayName";Expression={$aadsp.AppDisplayName}}, `
             @{Name="ApplicationAccountEnabled";Expression={$aadsp.AccountEnabled}}, `
             @{Name="ApplicationURL";Expression={$aadsp.ReplyUrls[0]}}, `
-            @{Name="ApplicationOwner";Expression={}}
+            @{Name="ApplicationOwner";Expression={}}, `
+            @{Name="LoggedintoLast30days";Expression={if(Get-AzureADAuditSignInLogs -Filter "appId eq '1064f7e4-a9e2-467d-8d42-f45cc59f145d'" -Top 1){$true}else{$False}}}
+
         } 
     }
 }
@@ -64,23 +66,23 @@ function getallAADAPPperms{
             $hash_approles[$($_.id)].value | where {$_ -in $permissions} | select `
             @{Name="PermissionType";Expression={"Application"}}, `
             @{Name="Scope";Expression={$_}}, `
-            @{Name="ScopeName";Expression={$hash_approles_desc[$_].displayname}}, `
+            @{Name="ScopeName";Expression={($hash_approles_desc[$_].displayname)[0]}}, `
             @{Name="Application";Expression={$aadsp.displayname}}, `
             @{Name="ApplicationObjectID";Expression={$aadsp.ObjectID}}, `
             @{Name="ApplicationPublisherName";Expression={$aadsp.PublisherName}}, `
             @{Name="ApplicationAppDisplayName";Expression={$aadsp.AppDisplayName}}, `
             @{Name="ApplicationAccountEnabled";Expression={$aadsp.AccountEnabled}}, `
             @{Name="ApplicationURL";Expression={$aadsp.ReplyUrls[0]}}, `
-            @{Name="ApplicationOwner";Expression={((Get-AzureADServicePrincipalOwner -ObjectId $aadsp.ObjectID).UserPrincipalName)[0]}}
+            @{Name="ApplicationOwner";Expression={[string](Get-AzureADServicePrincipalOwner -ObjectId $aadsp.ObjectID).UserPrincipalName}}, `
+            @{Name="LoggedintoLast30days";Expression={}}
         }
     }
 }
 function returnapps{
     getallAADAPPconsents | select * -unique
-    getallAADAPPperms
+    getallAADAPPperms | select * -unique
 }
 
 returnapps | export-csv ".\$((Get-AzureADTenantDetail).DisplayName)_AAD_EXO_Permissions.csv" -NoTypeInformation
-
 
 
