@@ -87,7 +87,7 @@ write-host "Retrieving Service Principals"
 $hash_riskyconsents = @("User.Read.All","Group.Read.All","Group.Write.All","Directory.ReadWrite.All","Directory.Read.All","ReadWrite.ConditionalAccess","PrivilegedAccess.ReadWrite.AzureAD","Files.Read.All","Files.Read","MailboxSettings.ReadWrite","Files.ReadWrite.All","Files.ReadWrite","EAS.AccessAsUser.All","EWS.AccessAsUser.All","Mail.Read","Mail.Read.Shared","Mail.ReadWrite","Directory.AccessAsUser.All","user_impersonation") | group -AsHashTable -AsString
 
 write-host "Building hash table with all api permissions"
-$hash_approles = Get-AzureADServicePrincipal -all $true | select -ExpandProperty AppRoles | select -Unique | group id -AsHashTable -AsString
+$hash_approles = Get-AzureADServicePrincipal -all $true | select -ExpandProperty AppRoles | select * -Unique | group id -AsHashTable -AsString
 
 write-host "Building user hash table for quick PrincipalId lookup"
 $hash_allAADUsers = @{}
