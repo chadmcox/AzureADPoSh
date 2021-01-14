@@ -28,7 +28,9 @@ https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/dete
 $permissions = "Mail.Read","Mail.Read.Shared","Mail.ReadBasic","Mail.ReadBasic.All","Mail.ReadWrite","Mail.ReadWrite.Shared","Mail.Send", `
     "Mail.Send.Shared","MailboxSettings.Read","MailboxSettings.ReadWrite","email","EWS.AccessAsUser.All","Exchange.Manage"
 
-
+if(!(Get-AzureADCurrentSessionInfo)){
+    connect-azuread
+}
 
 
 write-host "Retrieving Service Principals"
