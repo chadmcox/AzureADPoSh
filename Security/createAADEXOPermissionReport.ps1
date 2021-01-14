@@ -53,7 +53,7 @@ function getallAADAPPconsents{
             @{Name="ApplicationAppDisplayName";Expression={$aadsp.AppDisplayName}}, `
             @{Name="ApplicationAccountEnabled";Expression={$aadsp.AccountEnabled}}, `
             @{Name="ApplicationURL";Expression={$aadsp.ReplyUrls[0]}}, `
-            @{Name="ApplicationOwner";Expression={}}, `
+            @{Name="ApplicationOwner";Expression={"NA"}}, `
             @{Name="LoggedintoLast30days";Expression={if(Get-AzureADAuditSignInLogs -Filter "appId eq '1064f7e4-a9e2-467d-8d42-f45cc59f145d'" -Top 1){$true}else{$False}}}
 
         } 
@@ -74,7 +74,7 @@ function getallAADAPPperms{
             @{Name="ApplicationAccountEnabled";Expression={$aadsp.AccountEnabled}}, `
             @{Name="ApplicationURL";Expression={$aadsp.ReplyUrls[0]}}, `
             @{Name="ApplicationOwner";Expression={[string](Get-AzureADServicePrincipalOwner -ObjectId $aadsp.ObjectID).UserPrincipalName}}, `
-            @{Name="LoggedintoLast30days";Expression={}}
+            @{Name="LoggedintoLast30days";Expression={"NA"}}
         }
     }
 }
