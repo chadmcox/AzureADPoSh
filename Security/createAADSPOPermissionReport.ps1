@@ -26,6 +26,10 @@ https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/dete
 #>
 $permissions = "Sites.FullControl.All","Sites.Manage.All","Sites.Read.All","Sites.ReadWrite.All","Files.Read.All","Files.ReadWrite.All","File.Read.All"
 
+if(!(Get-AzureADCurrentSessionInfo)){
+    connect-azuread
+}
+
 write-host "Retrieving Service Principals"
 $aadsps = Get-AzureADServicePrincipal -all $true | where {$_.PublisherName -ne "Microsoft" -and $_.PublisherName -ne "Microsoft Services"}
 
