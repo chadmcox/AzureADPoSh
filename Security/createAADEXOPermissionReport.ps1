@@ -28,9 +28,7 @@ https://docs.microsoft.com/en-us/microsoft-365/security/office-365-security/dete
 $permissions = "Mail.Read","Mail.Read.Shared","Mail.ReadBasic","Mail.ReadBasic.All","Mail.ReadWrite","Mail.ReadWrite.Shared","Mail.Send", `
     "Mail.Send.Shared","MailboxSettings.Read","MailboxSettings.ReadWrite","email","EWS.AccessAsUser.All","Exchange.Manage"
 
-if(!(Get-AzureADCurrentSessionInfo)){
-    connect-azuread
-}
+
 
 
 write-host "Retrieving Service Principals"
@@ -56,7 +54,7 @@ function getallAADAPPconsents{
             @{Name="ApplicationAccountEnabled";Expression={$aadsp.AccountEnabled}}, `
             @{Name="ApplicationURL";Expression={$aadsp.ReplyUrls[0]}}, `
             @{Name="ApplicationOwner";Expression={"NA"}}, `
-            @{Name="LoggedintoLast30days";Expression={if(Get-AzureADAuditSignInLogs -Filter "appId eq '1064f7e4-a9e2-467d-8d42-f45cc59f145d'" -Top 1){$true}else{$False}}}
+            @{Name="LoggedintoLast30days";Expression={if(Get-AzureADAuditSignInLogs -Filter "appId eq '$($aadsp.appid)'" -Top 1){$true}else{$False}}}
 
         } 
     }
