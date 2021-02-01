@@ -32,7 +32,8 @@ $permissions = "Mail.Read","Mail.Read.Shared","Mail.ReadBasic","Mail.ReadBasic.A
 
 
 write-host "Retrieving Service Principals"
-$aadsps = Get-AzureADServicePrincipal -all $true | where {$_.PublisherName -ne "Microsoft" -and $_.PublisherName -ne "Microsoft Services"}
+$aadsps = Get-AzureADServicePrincipal -Filter "serviceprincipaltype eq 'Application'" -all $true | `
+    where {$_.PublisherName -ne "Microsoft" -and $_.PublisherName -ne "Microsoft Services"}
 
 write-host "Building hash table with all api permissions"
 $hash_approles = Get-AzureADServicePrincipal -all $true  | select -ExpandProperty AppRoles  | where {$_.value -in $permissions} | group id -AsHashTable -AsString
