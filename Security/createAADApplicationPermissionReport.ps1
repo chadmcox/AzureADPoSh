@@ -81,7 +81,7 @@ function getallperms{
 }
 
 write-host "Retrieving Service Principals"
-    $aadsps = Get-AzureADServicePrincipal -all $true
+    $aadsps = Get-AzureADServicePrincipal -Filter "serviceprincipaltype eq 'Application'" -all $true
 
 #this is a table of permissions I 
 $hash_riskyconsents = @("User.Read.All","Group.Read.All","Group.Write.All","Directory.ReadWrite.All","Directory.Read.All","ReadWrite.ConditionalAccess","PrivilegedAccess.ReadWrite.AzureAD","Files.Read.All","Files.Read","MailboxSettings.ReadWrite","Files.ReadWrite.All","Files.ReadWrite","EAS.AccessAsUser.All","EWS.AccessAsUser.All","Mail.Read","Mail.Read.Shared","Mail.ReadWrite","Directory.AccessAsUser.All","user_impersonation") | group -AsHashTable -AsString
