@@ -1,0 +1,1 @@
+SigninLogs | where CreatedDateTime >= ago(30d) | where AuthenticationDetails contains 'WindowsHelloForBusiness' | distinct UserPrincipalName
