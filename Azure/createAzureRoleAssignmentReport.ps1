@@ -51,5 +51,5 @@ Get-AzSubscription | set-azcontext | foreach{
                 @{Name="Subscription";Expression={if(!(($assignment.Scope -split "/")[-2] -eq "managementGroups")){`
                     "$($hash_sublookup[($assignment.Scope -split "/")[2]].name) ($($hash_sublookup[($assignment.Scope -split "/")[2]].id))"}}}
         }
-    } | where {$_.SignInName -like "*#EXT#*"}
-} | export-csv .\azureGuestRoleMembers.csv -notypeinformation
+    } 
+} | export-csv .\azureRoleMembers.csv -notypeinformation
