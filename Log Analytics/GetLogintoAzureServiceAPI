@@ -1,2 +1,23 @@
 SigninLogs | where CreatedDateTime >= ago(30d) | where ResourceDisplayName == 'Windows Azure Service Management API' 
 | distinct UserPrincipalName, AppDisplayName
+
+
+
+
+This will summarize every logging and look for the conditional access policy and call out which one it applied to and didnt apply too
+--------
+SigninLogs | where CreatedDateTime >= ago(5d)  
+| mv-expand ConditionalAccessPolicies
+| where ConditionalAccessPolicies["displayName"] == "Enterprise Wide - Require MFA for Azure Management"
+| extend result = tostring(ConditionalAccessPolicies["result"])
+| project-away ConditionalAccessPolicies 
+| distinct AppDisplayName, ResourceDisplayName, result
+-------
+this will show which users are logging into the azure management api
+-------
+SigninLogs | where CreatedDateTime >= ago(5d) | where ResourceDisplayName == 'Windows Azure Service Management API'
+| mv-expand ConditionalAccessPolicies
+| where ConditionalAccessPolicies["displayName"] == "Enterprise Wide - Require MFA for Azure Management"
+| extend result = tostring(ConditionalAccessPolicies["result"])
+| project-away ConditionalAccessPolicies 
+| distinct AppDisplayName, ResourceDisplayName, result, UserPrincipalName
