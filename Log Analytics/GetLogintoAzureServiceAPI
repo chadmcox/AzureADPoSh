@@ -1,0 +1,2 @@
+SigninLogs | where CreatedDateTime >= ago(30d) | where ResourceDisplayName == 'Windows Azure Service Management API' 
+| distinct UserPrincipalName, AppDisplayName
