@@ -21,8 +21,10 @@ from the use or distribution of the Sample Code..
 .DESCRIPTION
 #> 
 
-#connect-azuread
-#connect-azaccount
+connect-azuread
+connect-azaccount
+
+$startTime = get-date
 
 $hash_sublookup = Get-AzSubscription | select name, id | group id -AsHashTable -AsString
 $hash_alreadyresolved = @{}
@@ -132,5 +134,6 @@ write-host "Getting all Azure Roles"
 gatherAzureRoleMembers | export-csv .\azureRoleMembers.csv -notypeinformation
 write-host "Getting all Azure Roles in PIM"
 gatherPIMRoleMembers | export-csv .\azureRoleMembers.csv -Append -NoTypeInformation
-
+write-host "Completed after $("{0:N2}" -f (New-TimeSpan -start $startTime -end (get-date)).TotalHours) hours"
+write-host "Results found in azureRoleMembers.csv"
 
