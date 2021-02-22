@@ -1,4 +1,4 @@
-#
+<#
 .VERSION 2021.2.18
 .GUID 809ca830-a28a-45ea-888f-aa200e857d98
 .AUTHOR Chad.Cox@microsoft.com
@@ -21,8 +21,8 @@ from the use or distribution of the Sample Code..
 .DESCRIPTION
 #> 
 
-connect-azuread
-connect-azaccount
+#connect-azuread
+#connect-azaccount
 
 $hash_sublookup = Get-AzSubscription | select name, id | group id -AsHashTable -AsString
 $hash_alreadyresolved = @{}
@@ -89,14 +89,14 @@ function gatherAzureRoleMembers{
 function gatherPIMRoleMembers{
     $uniqueScopes = import-csv .\azureRoleMembers.csv | select scope -Unique
     foreach($sc in $uniqueScopes.scope){
-        write-host "Enumerating: PIM $sc"
+        write-host "Enumerating PIM: $sc"
         Get-AzureADMSPrivilegedResource -ProviderId AzureResources -filter "externalId eq '$sc'" -pv resource | foreach {
-            Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -ResourceId $resource.id -pv pimrole | foreach{
-                write-host "Enumerating: PIM $($pimrole.DisplayName)"
-                Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $resource.id -filter "RoledefinitionId eq '$($pimrole.id)'" `
-                    -pv assignment | where {$_.membertype -ne "Inherited"} | foreach{
-                    Get-AzureADObjectByObjectId -ObjectIds $assignment.SubjectId -pv account | where {$_.displayname -ne "MS-PIM"} | foreach{
-                        if($account.objecttype -eq "Group"){
+            Get-AzureADMSPrivilegedRoleAssignment -ProviderId AzureResources -ResourceId $resource.id `
+                    -pv assignment | where {$_.membertype -ne "Inherited"} | foreach{$pimrole = $null
+                $pimrole = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -ResourceId $resource.id -Id $assignment.RoleDefinitionId -pv pimrole
+                write-host "Enumerating PIM: $($pimrole.DisplayName)"
+                Get-AzureADObjectByObjectId -ObjectIds $assignment.SubjectId -pv account | where {$_.displayname -ne "MS-PIM"} | foreach{
+                    if($account.objecttype -eq "Group"){
                             Get-AzADGroupMember -GroupObjectId $account.objectid -pv gm | select `
                                 @{Name="Scope";Expression={$sc}}, `
                                 @{Name="ScopeType";Expression={($sc -split "/")[-2]}}, `
@@ -124,7 +124,7 @@ function gatherPIMRoleMembers{
                             @{Name="AssignmentState";Expression={$assignment.AssignmentState}}
                     }
                 }
-            }
+            
         }
     }
 }
@@ -132,6 +132,5 @@ write-host "Getting all Azure Roles"
 gatherAzureRoleMembers | export-csv .\azureRoleMembers.csv -notypeinformation
 write-host "Getting all Azure Roles in PIM"
 gatherPIMRoleMembers | export-csv .\azureRoleMembers.csv -Append -NoTypeInformation
-
 
 
