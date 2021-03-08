@@ -35,15 +35,15 @@ function findScopeCaseforPIM{
         return $hash_alreadyresolved[$scope]
     }
     if(($scope -split "/")[-2] -eq "managementGroups"){
-        try{return (Get-AzManagementGroup -GroupName ($Scope -split "/")[-1]).id}catch{}
+        try{return (Get-AzManagementGroup -GroupName ($Scope -split "/")[-1]).id}catch{return $scope}
     }elseif(($scope -split "/")[-2] -eq "subscriptions"){
-        try{return "/subscriptions/$((Get-AzSubscription -SubscriptionId ($Scope -split "/")[-1]).id)"}catch{}
+        try{return "/subscriptions/$((Get-AzSubscription -SubscriptionId ($Scope -split "/")[-1]).id)"}catch{return $scope}
     }elseif(($scope -split "/")[-2] -eq "resourceGroups"){
-        try{return (Get-AzResourceGroup -id $scope).ResourceId}catch{}
+        try{return (Get-AzResourceGroup -id $scope).ResourceId}catch{return $scope}
     }elseif($scope -eq "/"){
         return $scope
     }else{
-        try{return (Get-AzResource -ResourceId $scope).ResourceId}
+        try{return (Get-AzResource -ResourceId $scope).ResourceId}catch{return $scope}
     }
 }
 function gatherAzureRoleMembers{
