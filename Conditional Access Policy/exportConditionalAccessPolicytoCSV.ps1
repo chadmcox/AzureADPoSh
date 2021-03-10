@@ -44,7 +44,7 @@ function expandcap{
 #Get-AzureADMSConditionalAccessPolicy -PolicyId 4998f8af-e8c5-4ab2-b598-c33e96e12ab8 -pv cap  | foreach{
 $conditional_access_Policies = Get-AzureADMSConditionalAccessPolicy -pv cap  | foreach{
 $hash_prop = @{}
-"------------" | out-host
+write-host "Dumping $($cap.displayname)"
 expandcap -objcap $cap -space $null
 
 new-object psobject -property $hash_prop
