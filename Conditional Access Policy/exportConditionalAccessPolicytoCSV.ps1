@@ -9,7 +9,7 @@ function resolveguid{
     param($in,$cast)
     #write-host $cast
     if($in -match "(?im)^[{(]?[0-9A-F]{8}[-]?(?:[0-9A-F]{4}[-]?){3}[0-9A-F]{12}[)}]?$"){
-        (Get-AzureADObjectByObjectId -ObjectIds $in).displayname
+        try{(Get-AzureADObjectByObjectId -ObjectIds $in).displayname}catch{$in}
     }elseif(($in | get-member)[0].TypeName -eq "system.int32"){$results = @()
         $in -split " " | foreach{$results = 
         $results += invoke-expression "[$cast].GetEnumName([int]$_)"}
