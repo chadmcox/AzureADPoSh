@@ -34,6 +34,9 @@ function expandcap{
             #"$space" + "$($_.name)"
             #($objcap).($_.name)   #comment this out
             #$hash_prop.add($("$space" + "/" + "$($_.name)"),$null)
+            if("$space" + "/" + "$($_.name)" -eq "/GrantControls/BuiltInControls"){
+            $hash_prop.add($("$space" + "/" + "$($_.name)"),$(($objcap).($_.name)))
+            }
             expandcap -objcap ($objcap).($_.name) -space $("$space" + "/" + "$($_.name)") -cast ($objcap | get-member)[0].TypeName
         }
         
