@@ -51,5 +51,6 @@ new-object psobject -property $hash_prop
 } 
 
 $unique_props = $conditional_access_Policies | foreach{$_ | get-member -MemberType NoteProperty} | select name -unique
-$conditional_access_Policies | select ($unique_props| sort name | where name -notin "/id","/displayname","/state").name | `
-    select /id, /displayname, /state, * | export-csv $exportfile -NoTypeInformation
+$unique_props = @("/Id","/DisplayName","/State") + ($unique_props | where {$_.name -notin "/Id","/DisplayName","/State"} | sort name).name
+$conditional_access_Policies | select $unique_props | export-csv $exportfile -NoTypeInformation
+write-host "Results can be found here $exportfile"
