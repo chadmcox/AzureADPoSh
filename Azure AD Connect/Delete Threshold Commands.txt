@@ -3,3 +3,6 @@ Get-ADSyncExportDeletionThreshold
 Disable-ADSyncExportDeletionThreshold
 
 Enable-ADSyncExportDeletionThreshold -DeletionThreshold 500
+
+
+https://docs.microsoft.com/en-us/azure/active-directory/hybrid/how-to-connect-sync-feature-prevent-accidental-deletes
