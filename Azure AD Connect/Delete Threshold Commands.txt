@@ -1,0 +1,5 @@
+Get-ADSyncExportDeletionThreshold
+
+Disable-ADSyncExportDeletionThreshold
+
+Enable-ADSyncExportDeletionThreshold -DeletionThreshold 500
