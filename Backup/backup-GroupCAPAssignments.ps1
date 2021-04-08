@@ -1,3 +1,4 @@
+
 #export all conditional access group assignments
 Get-AzureADMSConditionalAccessPolicy -pv cap | select -ExpandProperty Conditions | select -ExpandProperty Users | foreach{
     $_ | select -ExpandProperty IncludeGroups | `
