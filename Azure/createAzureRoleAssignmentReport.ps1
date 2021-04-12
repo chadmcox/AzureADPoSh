@@ -1,6 +1,6 @@
 <#
 .VERSION 2021.4.12
-.GUID 809ca830-a28a-45ea-888f-aa200e857d98
+.GUID 18c37c40-e24d-4524-8b78-607d6969cb6e
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/ (retired)
     https://github.com/chadmcox
@@ -47,6 +47,8 @@ function gatherAzureRoleMembers{
     param()
     $sub_count = (Get-AzSubscription).count
     $i = 0
+    #condider putting in the following where clause after Get-AzSubscription -pv sub
+    #where {($_.state -eq "Enabled") -and (!($_.name -like "*Visual Studio*") -and !($_.name -like "*Free Trial*") -and !($_.name -like "*Azure for Students*"))}
     Get-AzSubscription -pv sub | set-azcontext | foreach{$i++
         write-host "Step 1 of 2 / Sub $i of $sub_count - Exporting Roles from: $($sub.name)"
         Get-AzRoleAssignment -IncludeClassicAdministrators -pv assignment | foreach{
