@@ -1,5 +1,4 @@
-let details = dynamic({"Name": "", "Type": "*"});
-let data = SigninLogs
+SigninLogs
     | where AppDisplayName in ('*') or '*' in ('*')
     | where UserDisplayName in ('*') or '*' in ('*')
     | extend errorCode = toint(Status.errorCode)
@@ -28,11 +27,9 @@ let data = SigninLogs
     | where SigninStatus == '*' or '*' == '*' or '*' == 'All Sign-ins'    
     | extend Reason = tostring(Status.failureReason)
     | extend ClientAppUsed = iff(isempty(ClientAppUsed) == true, "Unknown", ClientAppUsed)  
-    | extend isLegacyAuth = case(ClientAppUsed contains "Browser", "No", ClientAppUsed contains "Mobile Apps and Desktop clients", "No", ClientAppUsed contains "Exchange ActiveSync", "Yes", ClientAppUsed contains "Unknown", "Unknown", "Yes") 
+    | extend isLegacyAuth = case(ClientAppUsed contains "Browser", "No", ClientAppUsed contains "Mobile Apps and Desktop clients", "No", ClientAppUsed contains "Exchange ActiveSync", "Yes", ClientAppUsed contains "Exchange Online PowerShell","Yes", ClientAppUsed contains "Unknown", "Unknown", "Yes") 
     | where isLegacyAuth == "Yes"
     | where AppDisplayName in ('*') or '*' in ('*')
-    | where details.Type == '*' or (details.Type == 'App' and AppDisplayName == details.Name) or (details.Type == 'Protocol' and AppDisplayName == details.ParentId and ClientAppUsed == details.Name);
-data
 | where CreatedDateTime >= ago(30d)
 | extend OS = tostring(DeviceDetail.operatingSystem)
 | extend Browser = tostring(DeviceDetail.browser)
