@@ -23,7 +23,7 @@ from the use or distribution of the Sample Code..
 .DESCRIPTION 
  
 #>
-param($defaultpath = ".\)"
+param($defaultpath = ".")
 cd $defaultpath
 connect-azuread
 Get-AzSubscription -pv sub | set-azcontext | foreach{
@@ -41,4 +41,4 @@ Get-AzSubscription -pv sub | set-azcontext | foreach{
                 @{Name="Subscription";Expression={"$($sub.name) - ($sub.id)"}}
         }
     } 
-} | export-csv ".\Azure_Role_Assignment_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd).csv" -NoTypeInformation
+} | export-csv "$defaultpath\Azure_Role_Assignment_$((Get-AzureADTenantDetail).DisplayName)_$(get-date -f yyyy-MM-dd).csv" -NoTypeInformation
