@@ -1,5 +1,5 @@
 <#
-.VERSION 2021.4.13
+.VERSION 2021.4.12
 .GUID 18c37c40-e24d-4524-8b78-607d6969cb6e
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/ (retired)
@@ -18,8 +18,20 @@ copyright notice on Your software product in which the Sample Code is embedded;
 and (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and
 against any claims or lawsuits, including attorneys` fees, that arise or result
 from the use or distribution of the Sample Code..
+
 .DESCRIPTION
+this will dump all rbac and pim members from all subscriptions
+use the switch to expand group membership
+
+this is going to create two tmp files, the first one is all the azure iam role members.
+if this exist and greater than 1kb and not older than 3 days then the script will skip
+building a new copy of that file and will use that file to start the pim scan.
+the pim scan happens no matter what.
+
+Once both are complete it combines both tmp files to one file
+
 #> 
+
 param([switch]$expandgroupmember,$defaultpath=".\")
 connect-azuread
 connect-azaccount
@@ -104,12 +116,8 @@ function gatherAzureRoleMembers{
 }
 
 function gatherPIMRoleMembers{
-    $hash_scopes = @{}
-     import-csv $azure_rbac_file | select scope, Subscription -unique | foreach{
-        $hash_scopes.add($($_.scope),$($_.Subscription))
-
-     }
-    
+    $hash_scopes = import-csv $azure_rbac_file | select scope, Subscription -unique | group scope -AsHashTable -AsString
+    #$uniqueScopes = import-csv $azure_rbac_file | where DisplayName -eq "MS-PIM" | select scope -Unique
     $pim_count = $hash_scopes.count
     $i=0
     foreach($sc in $hash_scopes.keys){$i++
@@ -126,7 +134,7 @@ function gatherPIMRoleMembers{
                     $pimrole = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -ResourceId $resource.id -Id $assignment.RoleDefinitionId -pv pimrole
                     write-host "Enumerating PIM: $($pimrole.DisplayName)"
                     Get-AzureADObjectByObjectId -ObjectIds $assignment.SubjectId -pv account | where {$_.displayname -ne "MS-PIM"} | foreach{
-                        $hash_scopes[$sc] | foreach{$sub = $null; $sub = $_
+                        $hash_scopes[$sc].Subscription | foreach{$sub = $null; $sub = $_
                         if($account.objecttype -eq "Group" -and $expandgroupmember -eq $true){
                                 Get-AzADGroupMember -GroupObjectId $account.objectid -pv gm | select `
                                     @{Name="Scope";Expression={$sc}}, `
@@ -138,7 +146,9 @@ function gatherPIMRoleMembers{
                                     @{Name="ObjectID";Expression={$gm.ID}}, `
                                     @{Name="ObjectType";Expression={"MemberOf - $($account.DisplayName)"}}, `
                                     @{Name="Subscription";Expression={$sub}}, `
-                                    @{Name="AssignmentState";Expression={$assignment.AssignmentState}}, `
+                                    @{Name="AssignmentState";Expression={if($assignment.AssignmentState -like "Active" -and $assignment.EndDateTime -eq $null) `
+                                        {"$($assignment.AssignmentState) - Permanent"}elseif($assignmen.AssignmentState -like "Active" -and $assignment.EndDateTime -like "*") `
+                                        {"$($assignment.AssignmentState) - Elevated"}else{$assignment.AssignmentState}}}, `
                                     @{Name="Source";Expression={"Azure PIM"}}
                             } 
                             $account | select `
@@ -151,8 +161,10 @@ function gatherPIMRoleMembers{
                                 @{Name="ObjectID";Expression={$account.objectID}}, `
                                 @{Name="ObjectType";Expression={$account.objecttype}}, `
                                 @{Name="Subscription";Expression={$sub}}, `
-                                @{Name="AssignmentState";Expression={$assignment.AssignmentState}}, `
-                                    @{Name="Source";Expression={"Azure PIM"}}
+                                @{Name="AssignmentState";Expression={if($assignment.AssignmentState -like "Active" -and $assignment.EndDateTime -eq $null) `
+                                        {"$($assignment.AssignmentState) - Permanent"}elseif($assignment.AssignmentState -like "Active" -and $assignment.EndDateTime -like "*") `
+                                        {"$($assignment.AssignmentState) - Elevated"}else{$assignment.AssignmentState}}}, `
+                                @{Name="Source";Expression={"Azure PIM"}}
                         }
                     }}
             
