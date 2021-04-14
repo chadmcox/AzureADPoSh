@@ -1,5 +1,5 @@
 <#
-.VERSION 2021.4.12
+.VERSION 2021.4.13
 .GUID 18c37c40-e24d-4524-8b78-607d6969cb6e
 .AUTHOR Chad.Cox@microsoft.com
     https://blogs.technet.microsoft.com/chadcox/ (retired)
@@ -20,11 +20,30 @@ against any claims or lawsuits, including attorneys` fees, that arise or result
 from the use or distribution of the Sample Code..
 .DESCRIPTION
 #> 
-param([switch]$expandgroupmember)
+param([switch]$expandgroupmember,$defaultpath=".\")
 connect-azuread
 connect-azaccount
 
+cd $defaultpath
+
 $startTime = get-date
+
+function check-file{
+    param($file)
+    if(!(Test-Path $file)){
+        write-host "$file not found"
+        return $true      
+    }elseif(!((Get-Item $file).length/1KB -gt 1/1kb)){
+        write-host "$file is empty"
+        return $true
+    }elseif((get-item $file).LastWriteTime -lt (get-date).AddDays(-3)){
+        write-host "$file is older than 3 days"
+        return $true
+    }else{
+        write-host "$file seems reusable"
+        return $false
+    }
+}
 
 
 function findScopeCaseforPIM{
@@ -49,6 +68,7 @@ function gatherAzureRoleMembers{
     $i = 0
     #condider putting in the following where clause after Get-AzSubscription -pv sub
     #where {($_.state -eq "Enabled") -and (!($_.name -like "*Visual Studio*") -and !($_.name -like "*Free Trial*") -and !($_.name -like "*Azure for Students*"))}
+
     Get-AzSubscription -pv sub | set-azcontext | foreach{$i++
         write-host "Step 1 of 2 / Sub $i of $sub_count - Exporting Roles from: $($sub.name)"
         Get-AzRoleAssignment -IncludeClassicAdministrators -pv assignment | foreach{
@@ -65,7 +85,7 @@ function gatherAzureRoleMembers{
                         @{Name="ObjectID";Expression={$gm.ID}}, `
                         @{Name="ObjectType";Expression={"MemberOf - $($assignment.DisplayName)"}}, `
                         @{Name="Subscription";Expression={"$($sub.name) ($($sub.id))"}}, `
-                        AssignmentState
+                        AssignmentState,@{Name="Source";Expression={"Azure IAM"}}
             
                 }#enumerate all the accounts
                 $_ | select @{Name="Scope";Expression={$assignment.Scope}}, `
@@ -77,15 +97,19 @@ function gatherAzureRoleMembers{
                     @{Name="ObjectID";Expression={$assignment.ObjectID}}, `
                     @{Name="ObjectType";Expression={$assignment.Objecttype}}, `
                     @{Name="Subscription";Expression={"$($sub.name) ($($sub.id))"}}, `
-                    AssignmentState
+                    AssignmentState,  @{Name="Source";Expression={"Azure IAM"}}
             }
         } 
     } 
 }
 
 function gatherPIMRoleMembers{
-    $hash_scopes = import-csv .\azureRoleMembers.csv | select scope, Subscription -unique | group scope -AsHashTable -AsString
-    #$uniqueScopes = import-csv .\azureRoleMembers.csv | where DisplayName -eq "MS-PIM" | select scope -Unique
+    $hash_scopes = @{}
+     import-csv $azure_rbac_file | select scope, Subscription -unique | foreach{
+        $hash_scopes.add($($_.scope),$($_.Subscription))
+
+     }
+    
     $pim_count = $hash_scopes.count
     $i=0
     foreach($sc in $hash_scopes.keys){$i++
@@ -102,7 +126,7 @@ function gatherPIMRoleMembers{
                     $pimrole = Get-AzureADMSPrivilegedRoleDefinition -ProviderId AzureResources -ResourceId $resource.id -Id $assignment.RoleDefinitionId -pv pimrole
                     write-host "Enumerating PIM: $($pimrole.DisplayName)"
                     Get-AzureADObjectByObjectId -ObjectIds $assignment.SubjectId -pv account | where {$_.displayname -ne "MS-PIM"} | foreach{
-                        $hash_scopes[$sc].Subscription | foreach{$sub = $null; $sub = $_
+                        $hash_scopes[$sc] | foreach{$sub = $null; $sub = $_
                         if($account.objecttype -eq "Group" -and $expandgroupmember -eq $true){
                                 Get-AzADGroupMember -GroupObjectId $account.objectid -pv gm | select `
                                     @{Name="Scope";Expression={$sc}}, `
@@ -114,7 +138,8 @@ function gatherPIMRoleMembers{
                                     @{Name="ObjectID";Expression={$gm.ID}}, `
                                     @{Name="ObjectType";Expression={"MemberOf - $($account.DisplayName)"}}, `
                                     @{Name="Subscription";Expression={$sub}}, `
-                                    @{Name="AssignmentState";Expression={$assignment.AssignmentState}}
+                                    @{Name="AssignmentState";Expression={$assignment.AssignmentState}}, `
+                                    @{Name="Source";Expression={"Azure PIM"}}
                             } 
                             $account | select `
                                 @{Name="Scope";Expression={$sc}}, `
@@ -126,16 +151,25 @@ function gatherPIMRoleMembers{
                                 @{Name="ObjectID";Expression={$account.objectID}}, `
                                 @{Name="ObjectType";Expression={$account.objecttype}}, `
                                 @{Name="Subscription";Expression={$sub}}, `
-                                @{Name="AssignmentState";Expression={$assignment.AssignmentState}}
+                                @{Name="AssignmentState";Expression={$assignment.AssignmentState}}, `
+                                    @{Name="Source";Expression={"Azure PIM"}}
                         }
                     }}
             
         }
     }
 }
-write-host "Getting all Azure Roles"
-gatherAzureRoleMembers | export-csv .\azureRoleMembers.csv -notypeinformation
+$azure_rbac_file = ".\azureRoleMembers.tmp"
+if(check-file -file $azure_rbac_file){
+    write-host "Getting all Azure Roles"
+    gatherAzureRoleMembers | export-csv $azure_rbac_file -notypeinformation
+}
+
+
+$azure_pimrole_file = ".\azurePimRoleMembers.tmp"
 write-host "Getting all Azure Roles in PIM"
-gatherPIMRoleMembers | export-csv .\azureRoleMembers.csv -Append -NoTypeInformation
+gatherPIMRoleMembers | export-csv $azure_pimrole_file -NoTypeInformation
+
+@(import-csv $azure_rbac_file; import-csv $azure_pimrole_file) | export-csv ".\AzureRoleAssignmentsReport.csv" -NoTypeInformation
 write-host "Completed after $("{0:N2}" -f (New-TimeSpan -start $startTime -end (get-date)).TotalHours) hours"
-write-host "Results found in azureRoleMembers.csv"
+write-host "Results found in AzureRoleAssignmentsReport.csv"
