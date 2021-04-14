@@ -147,7 +147,7 @@ function gatherPIMRoleMembers{
                                     @{Name="ObjectType";Expression={"MemberOf - $($account.DisplayName)"}}, `
                                     @{Name="Subscription";Expression={$sub}}, `
                                     @{Name="AssignmentState";Expression={if($assignment.AssignmentState -like "Active" -and $assignment.EndDateTime -eq $null) `
-                                        {"$($assignment.AssignmentState) - Permanent"}elseif($assignmen.AssignmentState -like "Active" -and $assignment.EndDateTime -like "*") `
+                                        {"$($assignment.AssignmentState) - Permanent"}elseif($assignment.AssignmentState -like "Active" -and $assignment.EndDateTime -like "*") `
                                         {"$($assignment.AssignmentState) - Elevated"}else{$assignment.AssignmentState}}}, `
                                     @{Name="Source";Expression={"Azure PIM"}}
                             } 
