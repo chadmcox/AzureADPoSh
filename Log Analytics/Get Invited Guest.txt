@@ -5,4 +5,4 @@ AuditLogs
 | extend PerformedBy = tostring(InitiatedBy.user.userPrincipalName)
 | mv-expand TargetResources
 | extend Target = tostring(TargetResources.userPrincipalName)
-| project PerformedBy,Identity,Target
+| project OperationName,PerformedBy,Identity,Target
