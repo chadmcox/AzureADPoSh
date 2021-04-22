@@ -6,7 +6,7 @@
 Param($report="$env:userprofile\Documents\AADPIMRoleMembers.csv")
 
 #check to see if already logged into AAD prompt if not
-if(!((Get-AzureADTenantDetail).objectid)){connect-azuread}
+try{Get-AzureADTenantDetail}catch{connect-azuread}
 
 #get all privilaged role membersrole members
 Get-AzureADMSPrivilegedRoleDefinition -ProviderId "aadRoles" -ResourceId (Get-AzureADTenantDetail).objectid -pv role | foreach{
