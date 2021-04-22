@@ -58,7 +58,9 @@ Param($reportpath = "$env:userprofile\Documents")
 
 $default_log = "$reportpath\report_AzureADApplicationExpirationDate.csv"
 
-connect-azuread
+#only prompt for connection if needed
+try{Get-AzureADCurrentSessionInfo}
+catch{Connect-azuread}
 
 $results = @()
 foreach($AADapp in Get-AzureADApplication){
