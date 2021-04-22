@@ -4,8 +4,9 @@
 #>
 Param($report="$env:userprofile\Documents\AzureAD_Enterprise_Applications.csv")
 
-#check to see if already logged into AAD prompt if not
-if(!((Get-AzureADTenantDetail).objectid)){connect-azuread}
+#only prompt for connection if needed
+try{Get-AzureADCurrentSessionInfo}
+catch{Connect-azuread}
 
 $company = (Get-AzureADTenantDetail).displayname
 
