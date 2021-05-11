@@ -29,7 +29,7 @@ Get-AzureADAuditDirectoryLogs -Filter "ActivityDisplayName eq 'Add role definiti
 Get-AzureADAuditDirectoryLogs -Filter "Category eq 'RoleManagement' and ActivityDisplayName eq 'Add member to role'" -All $true | select ActivityDateTime, Result, ActivityDisplayName, `
     @{N="InitiatedBy";E={if($_.InitiatedBy.user.DisplayName){$_.InitiatedBy.user.DisplayName}elseif($_.InitiatedBy.app.DisplayName){$_.InitiatedBy.app.DisplayName}else{$_.InitiatedBy.user.UserPrincipalName}}}, `
     @{N="Target";E={(($_.targetresources.ModifiedProperties | where {$_.DisplayName -eq "Role.DisplayName"}).newvalue).replace('"','')}}, `
-    @{N="PrincipalName";E={if([string]($_).TargetResources.Displayname -notlike " "){[string]($_).TargetResources.Displayname}else{[string]($_).TargetResources.UserPrincipalName}}}
+    @{N="PrincipalName";E={if([string]($_).TargetResources.Displayname -notlike " "){[string]($_).TargetResources.Displayname}else{[string]($_).TargetResources.UserPrincipalName}}} | where {$_.InitiatedBy -ne 'MS-PIM'}
 
 Get-AzureADAuditDirectoryLogs -Filter "Category eq 'RoleManagement' and ActivityDisplayName eq 'Add member to role outside of PIM (permanent)'" -All $true | select ActivityDateTime, Result, ActivityDisplayName, `
     @{N="InitiatedBy";E={if($_.InitiatedBy.user.DisplayName){$_.InitiatedBy.user.DisplayName}elseif($_.InitiatedBy.app.DisplayName){$_.InitiatedBy.app.DisplayName}else{$_.InitiatedBy.user.UserPrincipalName}}}, `
