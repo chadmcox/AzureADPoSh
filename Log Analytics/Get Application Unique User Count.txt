@@ -1,0 +1,1 @@
+SigninLogs | distinct AppDisplayName, Identity | summarize Count=count() by AppDisplayName
