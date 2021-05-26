@@ -1,4 +1,4 @@
 SigninLogs 
-| where ActivityDateTime >= ago(30d)
+| where TimeGenerated >= ago(30d)
 | distinct AppDisplayName, Identity 
 | summarize Count=count() by AppDisplayName
