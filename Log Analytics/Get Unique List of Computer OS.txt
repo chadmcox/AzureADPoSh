@@ -1,0 +1,4 @@
+SigninLogs
+| where TimeGenerated >= ago(30d)
+| extend os = tostring(DeviceDetail.operatingSystem)
+| distinct os, Identity | summarize Count=count() by os
